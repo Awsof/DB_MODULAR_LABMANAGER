@@ -141,20 +141,12 @@ class DbSidebar extends HTMLElement {
           height: 100vh;
           overflow: hidden;
 
-          /* Herda as CSS Custom Properties do documento host (index.html).
-           * Se não existirem, aplica os fallbacks abaixo. */
-          --navy:   var(--navy, #003761);
-          --navy2:  var(--navy2, #002a4d);
-          --navy3:  var(--navy3, #004a80);
-          --accent: var(--accent, #0F9B94);
-          --accent2:var(--accent2,#0a7a74);
-          --gold:   var(--gold,  #C49B3C);
-          --r:      var(--r,     6px);
-          --font:   var(--font,  'Segoe UI', system-ui, sans-serif);
-
-          background: var(--navy);
+          /* CSS Custom Properties são herdadas do :root do documento host
+           * através da fronteira do Shadow DOM — sem redeclaração.
+           * Os fallbacks abaixo garantem funcionamento standalone. */
+          background: var(--navy, #003761);
           box-shadow: 2px 0 12px rgba(0,55,97,.18);
-          font-family: var(--font);
+          font-family: var(--font, 'Segoe UI', system-ui, sans-serif);
           color: white;
         }
 
@@ -270,7 +262,7 @@ class DbSidebar extends HTMLElement {
         .db-badge {
           background: rgba(255,255,255,.07);
           border: 1px solid rgba(255,255,255,.15);
-          border-radius: var(--r);
+          border-radius: var(--r, 6px);
           padding: 7px 10px;
           font-size: 11px;
           color: rgba(255,255,255,.5);
@@ -291,7 +283,7 @@ class DbSidebar extends HTMLElement {
           padding: 6px;
           background: rgba(255,255,255,.08);
           border: 1px solid rgba(255,255,255,.15);
-          border-radius: var(--r);
+          border-radius: var(--r, 6px);
           color: rgba(255,255,255,.7);
           font-size: 11px;
           font-weight: 600;
@@ -491,7 +483,7 @@ if (!customElements.get('db-sidebar')) {
   // ── Logo DB (Base64 PNG inline — sem dependência de arquivo externo) ──────
   // Armazenado como propriedade estática da classe para ser compartilhado
   // entre todas as instâncias sem duplicação de memória.
-  DbSidebar._LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABEQAAACrCAYAAABv2ElnAAASSklEQVR4nO3dyXIbSw4AQHLC///LnIPEZ0rm0kstACrz6girFwCFRhfJywUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACY5Tr7ADK63W63d/9+vV5dVwCgKf0HALRl4XzwqdFoSdMCANyN6kH0HwDw17KL4sjhxx4aFQCoK2L/ofcAYFVLLYARm5BPNCkAkFum/kPfQQuZYn42OReDmN2nUtyWOZFnqgV2pcCbqVpctNYrzs5cd7HfTrX7sFo+X6/X6+12u0W8F/xVKS7FGntUiv2Z5N0Y4rWdzDGb9sDfWSG4MwfdDCvERAs946rag3hWVe6DnP4p0r1ZWfW4FGe8Uj32Z5N7bYnXvrLFa6qDfWflwM4WdKOtHBt7GYjUV+E+yOn3otynVawYj2KMRyvmwGxy8DjxOlaGWA1/gJ8I6r8yBNxIYuMYH5mpLft9kNf7RLhnVYlF8YU8iEAebide54kcp39mH8BRAvpf92sSOeBGER8AP2uhtaEN68tf4mttciEG/f824nWuyHEa7oA+EczbRQy4EcTIOXaI1Jb5PsjtNmbfx6zE32diax3yITa5+JN4jSdSjKbZISKQ94s8ietFnAC8t+LacIZ1ZTuxBTHIRaKL9It5/5t9AJ/cvs0+jsxcPwB+sza8p/84zrWrzb3NQy6K18iixGfYgUiUC1TFCtez+vkBtLbC2nCEa9KG+IIY5CKRzY7NkAOR2RelsqoFseI5AYyihn6pukbO5prW4V7mttr9W+18M5u5/ob7DpGogXv0M05RzyfS57YAmG/1z5xHXa+r9B/6Dohh9VpPbDPWijADkQgLd4+L/+r/jHC+mhMAflttbYiwHl8u7XuQiP2HBzGIQz4S1eg+JEQCzFycIxUB1+GYKM1sFX52t7bM90GujzX7fo9g3Z13DaKcP9upwXVVzUcxm9uouJy+Q2R0oEZO+MdjG31dVnsjeLfiOcNqsub57Eau+row4/pGvJ6zeo/q8QWZ2C1CRKPWiWkDEYOQ92Y0KKs1JyudK5BPhI88VFwX9B+v3Y91ZN/x+HeBuSrWfHIbEZNTfmVm1EJ7fTDi7/Uy8hxmv5EcaaVzBeoYvbZVqpUjzyVz/yHGYF3ykWh6x+TwgciIJMvchLwz6rwUQoAcrAvbjX4ZM+JvjSDGYD0zfwIVRhs6EOmdWNWakFdGnKciCJDHiDf6mdcFL2POMxSB9chJougZi8MGIiOGIT3//4gMRQD4reeDecZ1wcuYdryQgfXISaLoFYtDBiI9E2mlRuQZbwSPWzlugPrUOC9jetF7wFrkJJV1H4j0SqDVByG/eSO4X9XzArjrsTZkqZ1exvRnKALrkJNE0CMOuw5Eeg5Devy/FRiKAPDbakOR3sOQXv93Rl7IwDrkJBG0jsNuAxHDkHk0JgD8tsr6aWfqHHoP+KtyrZCT9VWO32f+zD6ArVa7MWfdr5eiBcDd9Xq9tloXbrfbLdra7GXMXC3j61HEWKOPSvf507lk7tHl5JfK1+DVuUWJ25Yx2GWHSOsLVTnYelttmzQA71VdUw1DYui1k0b/QTXXJ2Yf0x5yck1Z4/Wd5gMRw5B4DEUAeNRqXai8HlRr+EZz7WC/bA+bldcAPpsdq63ir+lAxDAkLtcSgEeV1gX9R0xeyMBxWYYjq+Zl9PsyUoY4fafZQEQzEl/La7pq8QPgp9nrgf4jNkMROC/6A+eKebniOX8yI0Zb3IeuP7t7VOSEz85QBIC77OutYUgOhiLQRvTBCGSMzyYDkZYLU8aLmI1rDMBdizWhwgOqtbEv1xfaiTgYqbAO0Ea02PzkdBxqRdIhEREBERFpF/gFVuV7AAAAABJRU5ErkJggg==';
+  DbSidebar._LOGO_BASE64 = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABEQAAACrCAYAAABv2ElnAAASSklEQVR4nO3dyXIbSw4AQHLC///LnIPEZ0rm0kstACrz6girFwCFRhfJywUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACY5Tr7ADK63W63d/9+vV5dVwCgKf0HALRl4XzwqdFoSdMCANyN6kH0HwDw17KL4sjhxx4aFQCoK2L/ofcAYFVLLYARm5BPNCkAkFum/kPfQQuZYn42OReDmN2nUtyWOZFnqgV2pcCbqVpctNYrzs5cd7HfTrX7sFo+X6/X6+12u0W8F/xVKS7FGntUiv2Z5N0Y4rWdzDGb9sDfWSG4MwfdDCvERAs946rag3hWVe6DnP4p0r1ZWfW4FGe8Uj32Z5N7bYnXvrLFa6qDfWflwM4WdKOtHBt7GYjUV+E+yOn3otynVawYj2KMRyvmwGxy8DjxOlaGWA1/gJ8I6r8yBNxIYuMYH5mpLft9kNf7RLhnVYlF8YU8iEAebide54kcp39mH8BRAvpf92sSOeBGER8AP2uhtaEN68tf4mttciEG/f824nWuyHEa7oA+EczbRQy4EcTIOXaI1Jb5PsjtNmbfx6zE32diax3yITa5+JN4jSdSjKbZISKQ94s8ietFnAC8t+LacIZ1ZTuxBTHIRaKL9It5/5t9AJ/cvs0+jsxcPwB+sza8p/84zrWrzb3NQy6K18iixGfYgUiUC1TFCtez+vkBtLbC2nCEa9KG+IIY5CKRzY7NkAOR2RelsqoFseI5AYyihn6pukbO5prW4V7mttr9W+18M5u5/ob7DpGogXv0M05RzyfS57YAmG/1z5xHXa+r9B/6Dohh9VpPbDPWijADkQgLd4+L/+r/jHC+mhMAflttbYiwHl8u7XuQiP2HBzGIQz4S1eg+JEQCzFycIxUB1+GYKM1sFX52t7bM90GujzX7fo9g3Z13DaKcP9upwXVVzUcxm9uouJy+Q2R0oEZO+MdjG31dVnsjeLfiOcNqsub57Eau+row4/pGvJ6zeo/q8QWZ2C1CRKPWiWkDEYOQ92Y0KKs1JyudK5BPhI88VFwX9B+v3Y91ZN/x+HeBuSrWfHIbEZNTfmVm1EJ7fTDi7/Uy8hxmv5EcaaVzBeoYvbZVqpUjzyVz/yHGYF3ykWh6x+TwgciIJMvchLwz6rwUQoAcrAvbjX4ZM+JvjSDGYD0zfwIVRhs6EOmdWNWakFdGnKciCJDHiDf6mdcFL2POMxSB9chJougZi8MGIiOGIT3//4gMRQD4reeDecZ1wcuYdryQgfXISaLoFYtDBiI9E2mlRuQZbwSPWzlugPrUOC9jetF7wFrkJJV1H4j0SqDVByG/eSO4X9XzArjrsTZkqZ1exvRnKALrkJNE0CMOuw5Eeg5Devy/FRiKAPDbakOR3sOQXv93Rl7IwDrkJBG0jsNuAxHDkHk0JgD8tsr6aWfqHHoP+KtyrZCT9VWO32f+zD6ArVa7MWfdr5eiBcDd9Xq9tloXbrfbLdra7GXMXC3j61HEWKOPSvf507lk7tHl5JfK1+DVuUWJ25Yx2GWHSOsLVTnYelttmzQA71VdUw1DYui1k0b/QTXXJ2Yf0x5yck1Z4/Wd5gMRw5B4DEUAeNRqXai8HlRr+EZz7WC/bA+bldcAPpsdq63ir+lAxDAkLtcSgEeV1gX9R0xeyMBxWYYjq+Zl9PsyUoY4fafZQEQzEl/La7pq8QPgp9nrgf4jNkMROC/6A+eKebniOX8yI0Zb3IeuP7t7VOSEz85QBIC77OutYUgOhiLQRvTBCGSMzyYDkZYLU8aLmI1rDMBdizWhwgOqtbEv1xfaiTgYqbAO0Ea02Pzk9EDEMCQnX6gHQGb6j3zsUoW2og1G5CV3I+PybNyF+chMpGRehaEIAJdLvjXYMCQvQxFoL9JgRF5yFyUmPzk1EGkV8FkuFgAA5+j7oI8ouWUoQiaHByKGITXYJQLA5XJ+PRi1DtgdwiP9B/ykrhHJqHg8sxaE+cgM8yicAGRgGFKHj85APxE+QiMvyeLQQMTukHr8ygAAq9B/xOA+QF9yjAiix+G0HSLRLwwArCby2uxlTE0+ugt9zax58pIMdg9EBHZdmkQAztAjAMRjKMJskZ8zp+wQiXxBVpflS/UAWIfdIbXZJQL9qX9Ud3QN2DUQabHQSEYAYDT9R2zuD/Q3K88MK4nMr8zwD7tEAIjCmsIe4gXeM3yEnzYPROwOAQAy0n/k4D7BGDNyzbCSqDXeDhGeOhOwUYMdgM8i1XANNEeIG/gsUq2HmTYNROwOYYvrt9nHAQB31qVc3C8YZ3S+GVYSkR0ivLSlSF4fjDgmANagcV5Xi55C/MA2enhWN2QgItHqMQQBIDrrFEAshpVE83EgImi5sxsEABhBrwHjyDdW1n2HiATLzRAEgNF8dxkteKkH242smXKTSHyHCAAAANBN1EHY24HI2YP2dgYAGE3/UYMvV4Wx1E5WZIcIABCGB1iA+tR6Wjs60DMQAQDK8IazFvcTxpJz9BB5APZyIOLjMgCwnshNCwD9jXqOs94QgR0iAEAImmN6EFcAvGIgAgCUYHdqTe4rQF7Rh9JdBiIWLgBYj/UfoAb1nBZGDUPOxOvTgUj0KQ4AUIveg57EF8QkN5nNR2YAgMvlkrsx9TazNvcXxpN3nJGlpzAQAQAAAJoYOQw5O7hrPhAxSQSA9Vj/AepR29kry86Qu38GItlOAAA4z/oPwAzWnzoy3ksfmQEApjrbQHmDuYaz9zljow7EZN3514wa2+I+GIgAwOI8KALAdtbNv27fZh/HUQYiAMAp3pQB1KXG80z2Qchd04GIZAGAXCo0MwDkZi3KI8ogpNXs4U+L/wQAAABWEWEo0Mt92FD5HO9+7BBZ4YQBgC8t1v3Zu0Nn/33Gcr9hDrm3lii7QF5pGY8/BiICHQDWEKXRiXIcAEB8rWcWdogAAId4kUI2el0AHvmVGQBYjIdCACCbHi9iDEQAYCGthiF2hwAAo/TqOwxEAGARdoYAAPzlZ3cBoLjWgxC7QwCACprtENEcAUA8hiEAZGAXI+/0io9mAxEBDABx3L7NPg4AgBZ69Da+QwQACuk5CLE7BACYrWWf4yMzAFBA7x0h1nkAerLOsEernscOEQBIbMRHYzSpAPTmY57s1SJm/MoMACQyumE0DAHgcvlaDwwtiOZ2u93O9CoGIp0oFv/SVANsF2EdUbcBGMWaw1FnhiLNBiJnJzMA0EOEwUJG1nQAIIuj8wjfIQIA/GAYAsBvvV8weIHBWUdiyEAEAPiPYQgAM1h/aGHvUMRABAC4XC6aUQAgvz1DEQMRAMAwBAAoY+tQxK/MAMDCDEIAgFXZIQIAC7p+m30cAAA9bNklYiACAIsxCAEAVvBpKGIgAgCLiLgrJNrxAADrMBABgOIiDkJa2fvzeqytah5Ab2rtZ+pLXO/i98eXql6v16tgB4D8NGZUpE8Foni2zlp7/xW9bvuVGQAoQiMGQEbZ1q9sxzvT47WaORy53W63Z/et6UDk1R9ZUeXrEH3KB7CKymsNAETlufeY+zWL9DxphwgABKXZAmC2SA+v1DDrqzqeDbIMRBhCUw/Mov7U500dAOQS5ftL/coMADCVYQZbnG2cxRlALBF+Be+fgcjsAwIAAGC+EW/wPX8yMgZ+x3TzHSIRtr0AAAAAvOMjM+xi4AVARNan2txfGE/eMdKsnUIGIgDAdLZM05P4gpjkJo9GxcPjsM9ABAAAgP/YHcIqng5Ezk5mJBCPTH4BGEH/AQC5jX52tEMEAICwDLpgLDnHSgxEAIAQ7CikB3EFMclNXhkZGy8HIj42w2/uKQDRWatqcT9hLDnHKu6xbocIAAAAw9gdQhRdByImjCh23IkFYIsWtUL/wZ21B7ZTO4lkVP22Q4RNFEgAYCS9BwC9vR2ImKoDAADUNnIA6RmTSLrvEDHdB85SR9pwHcnCx2Zocf88dME26iUr85EZPjpaJDUiAAAQ1+hhiOcDovk4EPGWBgAYTf+xLrtDABjFDhEAoCxDEYDn7A6BjQMRb2nW5eMyAMxiLVmP3SEwhmcz+GKHCDDMmSbVwn2O68fKxH8O7hOMMSPXDCqJavNAxC6R9bhfAMymiQZoR38PP9khQnOaVwCi8RAQW6v7oweB12bVQXnJEaPidfhAREOSg/sEQBStmmlrW20euuA19Q+e2zUQ0ZAAM6kdx7huQGRqFPQ1M8cMKolu2kdmLH5xnbk3ih6fiBHgCC9lavJRGehLzSOjEXF7Xzd2D0QsOABAZh4QYnAfoK/ZOea5kQwO7RDxlqYuu0OITt3Yx/WikpbrjNyoQ/8BP92+zTwGeclRo2N3+q/MzE5W/nIvAIhOk12DngP6kFuwz+GBiLc0PNKgsod4GUNthffkyBwtr7v1BL5E2BVyJy85alQMP8boqR0igr2OKAUUthCvsDYvZfIyDIH2ItUxeclRs+J4+kdm7iIl8mrOXnuFD+JRU2E7+TKG6wxtRdoVcrl4JuC4mXF8eiDiLU1urjmznK0dYhfW1rrxVlP6an19PXixsmiDkMtFTnLc6Fj+HathdojcRUtu3lP8mEm9eM51YRWGIjkYhkAbEQchcEaEeG4yENGQ5OSjMswmhoCz9CCxGYbAedEHIfKSI6LEdLMdIj0akigXqSLXlirE8k+uB5wnj9pwHeG424PZx/KOYQh7zYzrZ/Ha9CMzPRIiehHIqMU1VfwgHvWSVek/4ulx/fQeVJdlCHInJ9kjamz/mX0AW9xut5uEa8MwhGiu1+v1bFyqEUCLWvLb/f9TX/YxDIHPIj4Y7iEn2SpKrL+K2eYDkR4NyeXigaeFKMEIPaxeI+Q36EFm61WHXPt1WMtykJNfxGsNXX5lpleSRN1mE13L66YA0kOruFq1Pqx63vBMzx6kx/9bhWEIrEFOktG7uO32s7s9k0VTsl3La6UA0pOhyDGrnS9s4cXMWIYhsAY5SUaf4rbbQGTLHz9DU/KZYQirWqU2rHKecIQXM/317MX0HRCLnKSqrgORy6V/8mhK/tW6QVEAGaVlrFWvDdXPD1rwYqaP3ueu74BY5CRZbYnd7gORrQdyxspNyaMe10EBJLOKdUG9g330IG31Pld9B8QiJ8lqa+wOGYhcLmOSabWm5K7XeSuAzNA67irVhbPnIadZlR7kvBHnp0ZBLHKSFQwbiFwu45KqelPyyGd3qahH/GWvCYYhcI4e5JhR56NGQRzXb7OPA47aE79/eh7IM9fr9TqqUXj8O5WS2hsaVtCjVtz/v0wxXunBCmab0YNkqjePRtaerNdoNSPzh3nkI9ntjeFpAT+zoGZNdG9onjtzXTKe72pW/OK+3t8FdPT/n329sh438czoQTLEoevCO4Yh9VXLRzG7niMxPHyHyN39YGcEaqadI97QQD/R3uCO+C4gzQHM6UGi9h6zakKka8A2dojUJR+p4GgcTxuI3M0urr//9uyCoDGBn0bUiJl1YMUdMBDFrB6kas3ZSm2COOQjFZyJ4+kDkctl/lDk0avjaFksopzrnUJIdKNrRM+Hldn5H6neQgQRcuLZ3z9bd2af0yt6DohBLlLF2VgOMRC5XOZ+hGaLqMd1hkJIJjMfWjLm/6v8zngu0FvEHiTSsbSg54AY5CKVtIjnoT+7u4UkHcN1JiNxu8276+Qawmvyow/XtQ73MrfV7t9q57uS67cW/1eYHSKPIr6pqUJhIDv14b1POe66wXtqTDt6DohBLlJJ63gOt0PkUcvJD4ohtYjnn9RLaEtOHefa1ebe5iEXxWs1Pe5n6IHInUA+RzGkKnH9xXWAfuTXPq4XzKf3p5qeMR3yIzPP2MK6n0LIClavDfIc+lu9zmyhFq3lep3/60z8JAdfE695jYjr1IkjsJ9brSAejYPVrtMKVqoJZ+I3a85kPW5qWqnevCK3kAdzycF9xGsuo+K7RBIJ7i+rFsUz93/Va1Zd9ZowYxhy9u+2YCBCRNXrzTNyikcr5sBscvA48RrbjNgulUwrBriC6CGJ16rVhBYxayACfVSrN8/IJV5ZIf5nknvtidlYZsZ42eSqHOSK4k+ZH/AYJ3NNaBmnmfPFQIQsMteb3+QPe1SK/Znk3Rjida4ocR7iIEbIHvBRAgayy1IL5DzUkKXmPFJ/aCFj7I8m1+IQr31FjvWwB9ZThoCPHDRQSaR6IO+hvkg1507tAWBVFsBvMxsUjQjEMbIWyH1gRv+h9gDAFwviDj6/Dms7UgPkP3DW3tqj7gDANv8HUlCyZ+4vWUYAAAAASUVORK5CYII=';
 
   customElements.define('db-sidebar', DbSidebar);
 }

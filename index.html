@@ -672,6 +672,28 @@ initDB().then(async () => {
 
 <script>
 
+// Compatibilidade com módulos ES — alias para escopo local
+const dbAll = window.dbAll;
+const dbGet = window.dbGet;
+const dbPut = window.dbPut;
+const dbAdd = window.dbAdd;
+const dbDelete = window.dbDelete;
+const dbClear = window.dbClear;
+const dbAddLogged = window.dbAddLogged;
+const dbPutLogged = window.dbPutLogged;
+const dbDeleteLogged = window.dbDeleteLogged;
+const auditLog = window.auditLog;
+const applyDataFilter = window.applyDataFilter;
+const rlsBanner = window.rlsBanner;
+const canAccess = window.canAccess;
+const canBtn = window.canBtn;
+const doLogin = window.doLogin;
+const doLogout = window.doLogout;
+const applyNavPermissions = window.applyNavPermissions;
+const initDefaultAdmin = window.initDefaultAdmin;
+const pages = window.pages;
+const navigate = window.navigate;
+
 // ===================== STREAMING ENVIO IMPORT =====================
 // Processes CSV text in 50k-line chunks, yielding to the UI thread between chunks.
 // This prevents the browser from freezing on 1M+ row files.
@@ -5224,7 +5246,7 @@ pages.perfis_acesso = async function() {
     });
   }
 
-  const isAdminUser = currentUser?.isAdmin || false;
+  const isAdminUser = window.currentUser?.isAdmin || false;
 
   document.getElementById('content').innerHTML = `
     <!-- Permissions Matrix -->

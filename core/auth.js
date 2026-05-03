@@ -41,6 +41,9 @@ import {
  */
 export let currentUser = null;
 
+// Exposição global para compatibilidade com script inline
+window.currentUser = currentUser;
+
 // ── auditLog ─────────────────────────────────────────────────────────────────
 
 /**
@@ -205,6 +208,9 @@ export async function doLogin() {
     entityNome: user.entityNome || null,
   };
 
+  // Atualiza exposição global
+  window.currentUser = currentUser;
+
   // Atualiza o pill de usuário no Web Component <db-sidebar>
   const sidebarEl = document.getElementById('sidebar');
   sidebarEl?.setUser({ nome: currentUser.nome, perfil: currentUser.perfilNome });
@@ -234,6 +240,9 @@ export async function doLogin() {
 export function doLogout() {
   if (currentUser) auditLog('logout', 'Sessão encerrada');
   currentUser = null;
+
+  // Atualiza exposição global
+  window.currentUser = null;
 
   document.getElementById('login-user').value = '';
   document.getElementById('login-pass').value = '';

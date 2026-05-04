@@ -3,26 +3,29 @@
  *
  * PADRÃO: Script clássico carregado via <script src="core/router.js" defer>.
  * Depende de core/auth.js (deve ser carregado antes).
- * Registra navigate() e pages em window.*.
  *
- * O objeto `pages` é o mesmo registrado em window.pages — o script inline
- * do index.html escreve nele diretamente (pages.dashboard = ...) e o
- * navigate() o acessa para chamar a função correta.
+ * ESTRATÉGIA DE COMPATIBILIDADE:
+ *  O <script> inline do index.html declara `var pages = {}` no topo para
+ *  evitar ReferenceError durante o parse. As funções de página são atribuídas
+ *  a esse objeto: pages.dashboard = async function() {...}
  *
- * Dependências: window.rlsBanner, window.currentUser (de auth.js)
+ *  Este módulo (defer) executa DEPOIS do script inline ter sido parseado.
+ *  Portanto window.pages já existe e já contém todas as funções de página.
+ *  Reutilizamos o objeto existente — não criamos um novo — para que o
+ *  navigate() enxergue as funções registradas pelo inline.
+ *
+ * Dependências: window.rlsBanner (auth.js)
  */
 (function (global) {
   'use strict';
 
-  // ── Registro de páginas ────────────────────────────────────────────────────
-  // O mesmo objeto é compartilhado por window.pages e pelo navigate() abaixo.
-  // O script inline atribui a este objeto: pages.dashboard = async function(){...}
-  var pages = {};
+  // ── Reutiliza o objeto pages do script inline (já populado) ───────────────
+  // Se window.pages já existe (declarado pelo inline), usamos ele.
+  // Caso contrário, criamos (safety net para outros contextos de uso).
+  var pages = global.pages || {};
+  global.pages = pages;   // garante que window.pages aponta para o mesmo objeto
 
-  // Página atualmente ativa
-  var currentPage = '';
-
-  // Páginas sem banner RLS (sem dados de cliente filtráveis)
+  // Páginas sem banner RLS
   var NO_BANNER_PAGES = new Set([
     'importacao', 'perfis_acesso', 'sistemas',
     'analistas', 'supervisores', 'grupos_matrizes',
@@ -30,13 +33,11 @@
 
   // ── navigate ────────────────────────────────────────────────────────────────
   function navigate(page) {
-    // Atualiza o item ativo no sidebar via API pública do Web Component
     var sidebarEl = document.getElementById('sidebar');
     if (sidebarEl) sidebarEl.activePage = page;
 
-    currentPage = page;
+    global.currentPage = page;
 
-    // Injeta ou limpa o banner RLS
     var bannerEl = document.getElementById('rls-global-banner');
     if (bannerEl) {
       bannerEl.innerHTML = NO_BANNER_PAGES.has(page)
@@ -44,15 +45,13 @@
         : (typeof global.rlsBanner === 'function' ? global.rlsBanner() : '');
     }
 
-    // Chama a função de renderização da página
     if (typeof pages[page] === 'function') {
       pages[page]();
     }
   }
 
   // ── Registro em window ──────────────────────────────────────────────────────
-  global.pages       = pages;
   global.navigate    = navigate;
-  global.currentPage = currentPage;
+  global.currentPage = global.currentPage || '';
 
 }(window));

@@ -7,6 +7,10 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <script src="./components/db-sidebar.js" defer></script>
+<script src="./core/db.js" defer></script>
+<script src="./core/auth.js" defer></script>
+<script src="./core/router.js" defer></script>
+<script src="./core/utils.js" defer></script>
 <style>
   :root {
     /* 60% — Fundo claro: áreas de conteúdo e leitura */
@@ -583,116 +587,14 @@
 <!-- TOAST -->
 <div id="toast"></div>
 
-<script type="module">
-// ══════════════════════════════════════════════════════════════════════════
-// FASE 1 — Importação dos módulos extraídos
-// Cada módulo também expõe seus símbolos via window.* para compatibilidade
-// com o código de páginas ainda inline neste arquivo.
-// ══════════════════════════════════════════════════════════════════════════
-import {
-  initDB, dbAll, dbGet, dbPut, dbAdd, dbDelete, dbClear,
-  dbAddLogged, dbPutLogged, dbDeleteLogged,
-} from './core/db.js';
-
-import {
-  auditLog,
-  applyDataFilter, rlsBanner,
-  canAccess, canBtn,
-  doLogin, doLogout, applyNavPermissions,
-  initDefaultAdmin,
-} from './core/auth.js';
-
-// router.js expõe navigate e pages via window.navigate / window.pages
-import './core/router.js';
-
-// utils.js expõe todos os utilitários via window.*
-import './core/utils.js';
-
-// ── Exposição global de db.js e auth.js ───────────────────────────────────
-// utils.js e router.js já fazem sua própria exposição.
-// Aqui complementamos os módulos que não têm exposição interna.
-window.dbAll              = dbAll;
-window.dbGet              = dbGet;
-window.dbPut              = dbPut;
-window.dbAdd              = dbAdd;
-window.dbDelete           = dbDelete;
-window.dbClear            = dbClear;
-window.dbAddLogged        = dbAddLogged;
-window.dbPutLogged        = dbPutLogged;
-window.dbDeleteLogged     = dbDeleteLogged;
-window.auditLog           = auditLog;
-window.applyDataFilter    = applyDataFilter;
-window.rlsBanner          = rlsBanner;
-window.canAccess          = canAccess;
-window.canBtn             = canBtn;
-window.doLogin            = doLogin;
-window.doLogout           = doLogout;
-window.applyNavPermissions= applyNavPermissions;
-window.initDefaultAdmin   = initDefaultAdmin;
-
-// ── BOOT modular ──────────────────────────────────────────────────────────
-document.getElementById('main').style.display    = 'none';
-document.getElementById('sidebar').style.display = 'none';
-
-document.getElementById('login-btn').addEventListener('click', doLogin);
-['login-user','login-pass'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', e => {
-    if (e.key === 'Enter') doLogin();
-  });
-});
-
-// Evento de navegação emitido pelo Web Component <db-sidebar>
-document.addEventListener('db-navigate', (e) => {
-  const page = e.detail.page;
-  if (!canAccess(page)) { window.toast('Sem permissão para acessar esta página.', 'error'); return; }
-  window.navigate(page);
-});
-
-// Evento de logout emitido pelo Web Component <db-sidebar>
-document.addEventListener('db-logout', () => {
-  if (confirm('Deseja encerrar a sessão?')) doLogout();
-});
-
-// Inicialização do banco + seed de dados padrão
-initDB().then(async () => {
-  await initDefaultAdmin();
-  // Seed perfis padrão (definidos no script inline do arquivo)
-  const perfis = await dbAll('perfis_acesso');
-  if (perfis.length === 0 && typeof window.PERFIS_DEFAULT !== 'undefined') {
-    for (const p of window.PERFIS_DEFAULT) {
-      await dbPut('perfis_acesso', { ...p, permissoes: window.buildDefaultPerms() });
-    }
-  }
-  document.getElementById('login-user').focus();
-}).catch(err => {
-  document.getElementById('login-error').textContent = 'Erro ao inicializar o banco de dados.';
-  console.error(err);
-});
-</script>
-
 <script>
-
-// Compatibilidade com módulos ES — alias para escopo local
-const dbAll = window.dbAll;
-const dbGet = window.dbGet;
-const dbPut = window.dbPut;
-const dbAdd = window.dbAdd;
-const dbDelete = window.dbDelete;
-const dbClear = window.dbClear;
-const dbAddLogged = window.dbAddLogged;
-const dbPutLogged = window.dbPutLogged;
-const dbDeleteLogged = window.dbDeleteLogged;
-const auditLog = window.auditLog;
-const applyDataFilter = window.applyDataFilter;
-const rlsBanner = window.rlsBanner;
-const canAccess = window.canAccess;
-const canBtn = window.canBtn;
-const doLogin = window.doLogin;
-const doLogout = window.doLogout;
-const applyNavPermissions = window.applyNavPermissions;
-const initDefaultAdmin = window.initDefaultAdmin;
-const pages = window.pages;
-const navigate = window.navigate;
+// ── Declarações de bridging — garantem que o script inline parse sem erro ──
+// O script inline executa imediatamente ao ser parseado, antes dos defer.
+// Variáveis usadas no escopo top-level (atribuições a pages.X, let labPage,
+// const LAB_PER_PAGE) precisam existir. O router.js (defer) se conecta ao
+// mesmo objeto window.pages após carregar.
+var pages = {};
+var currentPage = '';
 
 // ===================== STREAMING ENVIO IMPORT =====================
 // Processes CSV text in 50k-line chunks, yielding to the UI thread between chunks.
@@ -818,8 +720,6 @@ async function processEnvioImport(rows) {
 
 // ===================== IMPORT ENGINE =====================
 const IGNORE_REP = v => !v || v.trim() === '' || v.toUpperCase().startsWith('A DEFINIR') || v.toUpperCase().startsWith('COMERCIAL A DEFINIR');
-
-
 async function processImport(rows) {
   const log = { data: new Date().toISOString(), novos: [], alterados: [], erros: [] };
 
@@ -1004,7 +904,6 @@ async function processEsmeraldaImport(rows, onProgress) {
     `Lista Esmeralda: ${result.atualizados} atualizados, ${result.semCadastro} sem cadastro G5, ${result.assessoresNovos} assessores novos`);
   return result;
 }
-
 
 // ===================== PAGE: DASHBOARD =====================
 pages.dashboard = async function() {
@@ -1237,7 +1136,6 @@ pages.dashboard = async function() {
 
 
 // ===================== PAGE: LABORATÓRIOS =====================
-
 let labPage = 1, labSearch = '', labSearchCodigo = '', labSearchCNPJ = '', labUF = '', labRep = '', labAnalista = '', labIntStatus = '';
 const LAB_PER_PAGE = 24;
 
@@ -5246,7 +5144,7 @@ pages.perfis_acesso = async function() {
     });
   }
 
-  const isAdminUser = window.currentUser?.isAdmin || false;
+  const isAdminUser = currentUser?.isAdmin || false;
 
   document.getElementById('content').innerHTML = `
     <!-- Permissions Matrix -->
@@ -5555,5 +5453,45 @@ window.toggleAcc = function(key) {
   if (window._divToggleAcc) window._divToggleAcc(key);
 };
 
+
+// ===================== BOOT — FASE 1 =====================
+// Os módulos core/*.js são carregados com defer e populam window.*
+// antes deste DOMContentLoaded. O script inline usa as funções globais.
+document.addEventListener('DOMContentLoaded', function () {
+  document.getElementById('main').style.display    = 'none';
+  document.getElementById('sidebar').style.display = 'none';
+
+  document.getElementById('login-btn').addEventListener('click', doLogin);
+  ['login-user', 'login-pass'].forEach(function (id) {
+    document.getElementById(id).addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') doLogin();
+    });
+  });
+
+  document.addEventListener('db-navigate', function (e) {
+    var page = e.detail.page;
+    if (!canAccess(page)) { toast('Sem permissão para acessar esta página.', 'error'); return; }
+    navigate(page);
+  });
+
+  document.addEventListener('db-logout', function () {
+    if (confirm('Deseja encerrar a sessão?')) doLogout();
+  });
+
+  initDB().then(async function () {
+    await initDefaultAdmin();
+    const perfis = await dbAll('perfis_acesso');
+    if (perfis.length === 0) {
+      for (const p of PERFIS_DEFAULT) {
+        await dbPut('perfis_acesso', { ...p, permissoes: buildDefaultPerms() });
+      }
+    }
+    document.getElementById('login-user').focus();
+  }).catch(function (err) {
+    document.getElementById('login-error').textContent = 'Erro ao inicializar o banco de dados.';
+    console.error(err);
+  });
+});
+</script>
 </body>
 </html>

@@ -17,34 +17,6 @@
 (function (global) {
   'use strict';
 
-  // ── Toast ─────────────────────────────────────────────────────────────────
-  function toast(msg, type, duration) {
-    type     = type     || 'info';
-    duration = duration || 4000;
-    var el = document.createElement('div');
-    el.className   = 'toast-item ' + type;
-    el.textContent = msg;
-    document.getElementById('toast').appendChild(el);
-    setTimeout(function () { el.remove(); }, duration);
-  }
-
-  // ── Modal ─────────────────────────────────────────────────────────────────
-  function openModal(html, onClose) {
-    var overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.innerHTML = '<div class="modal">' + html + '</div>';
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) { overlay.remove(); if (onClose) onClose(); }
-    });
-    document.getElementById('modal-container').appendChild(overlay);
-    return overlay;
-  }
-
-  function closeModal() {
-    var el = document.querySelector('.modal-overlay');
-    if (el) el.remove();
-  }
-
   // ── makeSortable ──────────────────────────────────────────────────────────
   var _sortState = {};
 
@@ -188,6 +160,28 @@
     URL.revokeObjectURL(url);
   }
 
+  // ── updateTopbar ─────────────────────────────────────────────────────────
+  function updateTopbar(title, subtitle, actions) {
+    const topbar = document.getElementById('topbar');
+    if (topbar) {
+      if (title !== undefined) topbar.title = title;
+      if (subtitle !== undefined) topbar.subtitle = subtitle;
+      if (actions !== undefined) {
+        // Limpar slot actions atual
+        const existingActions = topbar.querySelector('[slot="actions"]');
+        if (existingActions) existingActions.remove();
+
+        if (actions) {
+          // Criar container para actions
+          const actionsContainer = document.createElement('div');
+          actionsContainer.setAttribute('slot', 'actions');
+          actionsContainer.innerHTML = actions;
+          topbar.appendChild(actionsContainer);
+        }
+      }
+    }
+  }
+
   // ── Registro em window ─────────────────────────────────────────────────────
   global.toast                  = toast;
   global.openModal              = openModal;
@@ -201,5 +195,6 @@
   global.renderIntStatusBadge   = renderIntStatusBadge;
   global.downloadModeloCSV      = downloadModeloCSV;
   global.downloadModeloEnvioCSV = downloadModeloEnvioCSV;
+  global.updateTopbar           = updateTopbar;
 
 }(window));

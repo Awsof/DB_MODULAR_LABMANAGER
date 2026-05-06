@@ -1,21 +1,76 @@
 /**
  * core/utils.js — Utilitários compartilhados
  *
- * PADRÃO: Script clássico carregado via <script src="core/utils.js" defer>.
- * Sem dependências de outros módulos core.
- * Registra todas as funções em window.*.
- *
- * Funções incluídas:
- *  - toast, openModal, closeModal
- *  - makeSortable
- *  - generateReport
- *  - normalizeSupervisor
- *  - programaBadge
- *  - getIntStatus, getIntStatusLabel, renderIntStatusBadge
- *  - downloadModeloCSV, downloadModeloEnvioCSV  (movidas do inline)
+ * FIXES aplicados:
+ *  1. openModal() e closeModal() em utils.js não devem chamar openModal
+ *     diretamente — elas SÃO a implementação legada. Como db-modal.js
+ *     sobrescreve window.openModal após utils.js, as funções abaixo nunca
+ *     são chamadas em runtime. Mantidas apenas como fallback seguro.
+ *  2. updateTopbar() exposta via window.* para que pages/*.js a encontrem.
+ *  3. toast() delegada para window.toast (que db-toast.js sobrescreve).
+ *     A definição local é apenas fallback — db-toast.js sempre vence por
+ *     ordem de carregamento.
  */
 (function (global) {
   'use strict';
+
+  // ── Toast ─────────────────────────────────────────────────────────────────
+  // Definição fallback — db-toast.js sobrescreve window.toast após este arquivo.
+  function toast(msg, type, duration) {
+    type     = type     || 'info';
+    duration = duration || 4000;
+    var toastEl = document.getElementById('toast');
+    if (toastEl && typeof toastEl.show === 'function') {
+      // db-toast Web Component já disponível
+      toastEl.show(msg, type, duration);
+      return;
+    }
+    // Fallback visual simples caso o componente não esteja pronto
+    var el = document.createElement('div');
+    el.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:9999;' +
+      'background:#fff;border:1px solid #d4dbe6;border-radius:6px;' +
+      'padding:12px 16px;font-size:13px;box-shadow:0 8px 32px rgba(0,55,97,.15);' +
+      'border-left:3px solid ' + (type==='success'?'#0F9B94':type==='error'?'#d63031':'#004a80');
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(function () { if (el.parentNode) el.remove(); }, duration);
+  }
+
+  // ── Modal ─────────────────────────────────────────────────────────────────
+  // Implementação fallback — db-modal.js sobrescreve window.openModal/closeModal.
+  // Esta versão só seria chamada se db-modal.js não estiver no DOM.
+  function openModal(html, onClose) {
+    var modalComp = document.getElementById('modal');
+    if (modalComp && typeof modalComp.open === 'function') {
+      modalComp.open(html, onClose);
+      return modalComp._lightContainer || modalComp;
+    }
+    // Fallback legado (sem db-modal.js no DOM)
+    var overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,55,97,.48);' +
+      'z-index:200;display:flex;align-items:center;justify-content:center;padding:24px';
+    var win = document.createElement('div');
+    win.style.cssText = 'background:#fff;border-radius:10px;width:100%;max-width:680px;' +
+      'max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,55,97,.22)';
+    win.innerHTML = html;
+    overlay.appendChild(win);
+    overlay.addEventListener('click', function (e) {
+      if (e.target === overlay) { overlay.remove(); if (onClose) onClose(); }
+    });
+    document.body.appendChild(overlay);
+    return overlay;
+  }
+
+  function closeModal() {
+    var modalComp = document.getElementById('modal');
+    if (modalComp && typeof modalComp.close === 'function') {
+      modalComp.close();
+      return;
+    }
+    var el = document.querySelector('.modal-overlay');
+    if (el) el.remove();
+  }
 
   // ── makeSortable ──────────────────────────────────────────────────────────
   var _sortState = {};
@@ -116,9 +171,9 @@
   // ── getIntStatus ──────────────────────────────────────────────────────────
   function getIntStatus(chs) {
     if (!chs || chs.length === 0) return 'none';
-    var ativos  = chs.filter(function (ch) { return ch.integracaoAtiva; });
+    var ativos = chs.filter(function (ch) { return ch.integracaoAtiva; });
     if (ativos.length > 0) return 'active';
-    var semFim  = chs.filter(function (ch) { return !ch.dataFinalizacao; });
+    var semFim = chs.filter(function (ch) { return !ch.dataFinalizacao; });
     if (semFim.length > 0) return 'impl';
     return 'inactive';
   }
@@ -160,29 +215,27 @@
     URL.revokeObjectURL(url);
   }
 
-  // ── updateTopbar ─────────────────────────────────────────────────────────
+  // ── updateTopbar ──────────────────────────────────────────────────────────
+  // Exposta via window.* para que pages/*.js a encontrem em runtime.
   function updateTopbar(title, subtitle, actions) {
-    const topbar = document.getElementById('topbar');
-    if (topbar) {
-      if (title !== undefined) topbar.title = title;
-      if (subtitle !== undefined) topbar.subtitle = subtitle;
-      if (actions !== undefined) {
-        // Limpar slot actions atual
-        const existingActions = topbar.querySelector('[slot="actions"]');
-        if (existingActions) existingActions.remove();
-
-        if (actions) {
-          // Criar container para actions
-          const actionsContainer = document.createElement('div');
-          actionsContainer.setAttribute('slot', 'actions');
-          actionsContainer.innerHTML = actions;
-          topbar.appendChild(actionsContainer);
-        }
+    var topbar = document.getElementById('topbar');
+    if (!topbar) return;
+    if (title    !== undefined) topbar.title    = title;
+    if (subtitle !== undefined) topbar.subtitle = subtitle;
+    if (actions  !== undefined) {
+      // Remove slot de actions anterior
+      var existing = topbar.querySelector('[slot="actions"]');
+      if (existing) existing.remove();
+      if (actions) {
+        var container = document.createElement('div');
+        container.setAttribute('slot', 'actions');
+        container.innerHTML = actions;
+        topbar.appendChild(container);
       }
     }
   }
 
-  // ── Registro em window ─────────────────────────────────────────────────────
+  // ── Registro em window.* ──────────────────────────────────────────────────
   global.toast                  = toast;
   global.openModal              = openModal;
   global.closeModal             = closeModal;

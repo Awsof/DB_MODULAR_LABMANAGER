@@ -1,4 +1,5 @@
 // pages/perfis_acesso.js — extraído da fase 4
+// FIX: removido "as" solto na linha 256 que causava ReferenceError ao carregar
 (function (global) {
   'use strict';
   var pages = global.pages || {};
@@ -7,7 +8,6 @@
 pages.perfis_acesso = async function() {
   updateTopbar('Perfis de acesso e usuários', 'Gerencie permissões por perfil', '');
 
-  // Load or seed default perfis
   let perfis = await dbAll('perfis_acesso');
   if(perfis.length === 0) {
     for(const p of PERFIS_DEFAULT){
@@ -29,8 +29,6 @@ pages.perfis_acesso = async function() {
       </div>`).join('');
   }
 
-  function isSupervisor(pid) { return perfis.find(p=>p.id===pid)?.fullAccess === true; }
-
   function renderMatrix(perfil) {
     if(!perfil) return '';
     const perms = perfil.permissoes || {};
@@ -38,7 +36,6 @@ pages.perfis_acesso = async function() {
 
     const rows = ACL_STRUCTURE.map(cat => {
       const catPages = cat.pages;
-      const allCatEnabled = catPages.every(pg => isSuper || perms[pg.key] !== false);
 
       const pageRows = catPages.map(pg => {
         const pgEnabled = isSuper || perms[pg.key] !== false;
@@ -91,8 +88,6 @@ pages.perfis_acesso = async function() {
     const perfil = perfis.find(p=>p.id===selectedId);
     document.getElementById('acl-sidebar-list').innerHTML = renderSidebar();
     document.getElementById('acl-matrix-wrap').innerHTML = renderMatrix(perfil);
-
-    // Rebind sidebar clicks
     document.querySelectorAll('[data-pid]').forEach(el => {
       el.addEventListener('click', () => {
         selectedId = el.dataset.pid;
@@ -104,7 +99,6 @@ pages.perfis_acesso = async function() {
   const isAdminUser = currentUser?.isAdmin || false;
 
   document.getElementById('content').innerHTML = `
-    <!-- Permissions Matrix -->
     <div class="acl-grid" style="margin-bottom:24px">
       <div>
         <div class="acl-sidebar">
@@ -122,7 +116,6 @@ pages.perfis_acesso = async function() {
       <div id="acl-matrix-wrap"></div>
     </div>
 
-    <!-- User Management (admin only) -->
     ${isAdminUser ? `
     <div class="chart-card" style="margin-bottom:24px">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
@@ -132,7 +125,6 @@ pages.perfis_acesso = async function() {
       <div id="users-list"></div>
     </div>` : ''}
 
-    <!-- Audit Log -->
     <div class="chart-card">
       <div class="chart-title" style="margin-bottom:12px">Log de Auditoria</div>
       <div style="font-size:11px;color:var(--text3);margin-bottom:8px">Registro de todas as ações realizadas no sistema</div>
@@ -147,7 +139,6 @@ pages.perfis_acesso = async function() {
 
   renderPage();
 
-  // ---- LOAD USERS ----
   async function loadUsers() {
     const ul = document.getElementById('users-list');
     if(!ul) return;
@@ -184,17 +175,20 @@ pages.perfis_acesso = async function() {
       btn.addEventListener('click', async () => {
         if(!confirm(`Excluir usuário "${btn.dataset.delUser}"?`)) return;
         await dbDeleteLogged('usuarios', btn.dataset.delUser, `Excluiu usuário ${btn.dataset.delUser}`);
-        toast('Usuário excluído.','info'); loadUsers();
+        toast('Usuário excluído.','info');
+        loadUsers();
       });
     });
   }
 
-  // ---- LOAD AUDIT LOG ----
   async function loadAuditLog() {
     const el = document.getElementById('audit-log-list');
     if(!el) return;
     const logs = (await dbAll('audit_log')).reverse().slice(0,200);
-    if(!logs.length){ el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text3)">Nenhuma ação registrada ainda.</div>`; return; }
+    if(!logs.length){
+      el.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text3)">Nenhuma ação registrada ainda.</div>`;
+      return;
+    }
     const actionClass = a => {
       if(a==='login'||a==='logout') return 'login';
       if(a.includes('Excluiu')||a.includes('excluiu')) return 'delete';
@@ -221,7 +215,6 @@ pages.perfis_acesso = async function() {
   }
   loadAuditLog();
 
-  // Toggle handler — saves immediately
   window._aclToggle = async function(checkbox) {
     const perfil = perfis.find(p=>p.id===selectedId);
     if(!perfil || perfil.fullAccess) return;
@@ -229,7 +222,6 @@ pages.perfis_acesso = async function() {
     const val = checkbox.checked;
     if(!perfil.permissoes) perfil.permissoes = buildDefaultPerms();
     perfil.permissoes[key] = val;
-    // If a page is disabled, also disable all its buttons
     if(!val && !key.includes('::')) {
       const pg = ACL_STRUCTURE.flatMap(c=>c.pages).find(p=>p.key===key);
       if(pg) for(const btn of pg.btns) perfil.permissoes[`${key}::${btn.key}`] = false;
@@ -237,7 +229,6 @@ pages.perfis_acesso = async function() {
     await dbPut('perfis_acesso', perfil);
     await auditLog('Editou permissão', `Perfil ${perfil.nome}: ${key}=${val}`);
     toast('Permissão atualizada.','success', 1500);
-    // Re-render matrix only (not full page)
     document.getElementById('acl-matrix-wrap').innerHTML = renderMatrix(perfil);
   };
 
@@ -251,8 +242,5 @@ pages.perfis_acesso = async function() {
     renderPage();
   };
 };
-
-// ===================== USER MODAL =====================
-as
 
 })(window);

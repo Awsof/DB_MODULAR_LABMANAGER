@@ -428,4 +428,13 @@
     });
   }
 
-  })(window);
+  /* ── Exports globais ──────────────────────────────────────────────────────
+   * openSysViewModal e openSysModal são chamadas via strings onclick= dentro
+   * de innerHTML (ex: modal-footer de openSysViewModal, linha:
+   *   onclick="closeModal();openSysModal(${id},()=>navigate('sistemas'))"
+   * Sem export para window.* o engine lança ReferenceError em tempo de execução.
+   * -------------------------------------------------------------------------*/
+  global.openSysViewModal = openSysViewModal;
+  global.openSysModal     = openSysModal;
+
+})(window);

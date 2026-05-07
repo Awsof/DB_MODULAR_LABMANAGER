@@ -456,4 +456,13 @@
     });
   }
 
+  /* ── Exports globais ──────────────────────────────────────────────────────
+   * openAnalistaViewModal e openAnalistaModal são funções locais ao IIFE.
+   * Precisam ser expostas em window.* para que chamadas via onclick-string
+   * geradas por innerHTML (em outras páginas ou no próprio modal) as encontrem
+   * em tempo de execução sem lançar ReferenceError.
+   * -------------------------------------------------------------------------*/
+  global.openAnalistaViewModal = openAnalistaViewModal;
+  global.openAnalistaModal     = openAnalistaModal;
+
 })(window);

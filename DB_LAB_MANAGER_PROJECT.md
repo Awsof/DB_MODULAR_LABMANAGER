@@ -1,6 +1,6 @@
 # DB Lab Manager — Documentação do Projeto
 
-> **Versão atual:** index.html + core/ (4 módulos IIFE clássicos) + components/ (4 Web Components: topbar, login, toast, modal) + pages/ (dashboard, laboratórios, representantes, assessores, supervisores, analistas, sistemas, grupos_matrizes, dashboard_financeiro, dashboard_comercial, importacao, divergencias, propostas, pacotes, perfis_acesso extraídos) + import/ (3 módulos de engines) — **FASE 3 concluída, FASE 4 em progresso**
+> **Versão atual:** index.html (shell mínimo) + core/ (4 módulos IIFE clássicos) + components/ (5 Web Components: sidebar, topbar, login, toast, modal) + pages/ (15 módulos de páginas extraídos) + import/ (3 engines de importação) — **FASE 1 ✅ · FASE 2 ✅ · FASE 3 ✅ · FASE 4 ✅ (revisão final concluída) · FASE 5 e 6 pendentes**
 
 ---
 
@@ -30,7 +30,7 @@ Os tipos de envio são classificados em três grupos semânticos usados em toda 
 | **Convencional (XML)** | `INTEGRACAO`, `E-DB INTEGRACAO` | Integração via arquivo XML/convencional |
 | **Webservice (WS)** | `ETIQUETA PRIMARIA` | Integração via Webservice / etiqueta primária |
 
-Definidos no código como constantes globais:
+Definidos no código como constantes globais (em `import/import-envio.js`):
 ```js
 const ENVIO_SEM_INT = new Set(['DB FACIL', 'E-DB MANUAL', 'TOXICOLOGICO']);
 const ENVIO_CONV    = new Set(['INTEGRACAO', 'E-DB INTEGRACAO']);
@@ -46,7 +46,7 @@ Na visualização (chips de cor), cada grupo tem cor distinta:
 
 ### 2.2 Status de Integração de um Laboratório
 
-Calculado pela função `getIntStatus(chamados[])` com base nos chamados registrados:
+Calculado pela função `getIntStatus(chamados[])` (em `core/utils.js`) com base nos chamados registrados:
 
 | Status | Código | Condição |
 |---|---|---|
@@ -107,7 +107,7 @@ Clientes podem pertencer a programas especiais (campo `categoria_especial`):
 - **Esmeralda** — badge verde-água com borda · fundo `rgba(15,155,148,.13)`
 - **Chivor** — badge roxo com borda · fundo `rgba(108,92,231,.14)`
 
-Renderizado pela função `programaBadge(categoria)`.
+Renderizado pela função `programaBadge(categoria)` em `core/utils.js`.
 
 ---
 
@@ -123,7 +123,7 @@ O sistema aplica **Row-Level Security** no frontend, filtrando os dados exibidos
 | `supervisor` | Clientes cujo representante tem `supervisor === entityNome` |
 
 Um banner visual aparece no topo de cada página quando filtro está ativo.  
-O filtro é aplicado pela função `applyDataFilter(clientes, reps)` em todas as páginas que listam clientes.
+O filtro é aplicado pela função `applyDataFilter(clientes, reps)` em `core/auth.js` em todas as páginas que listam clientes.
 
 ---
 
@@ -135,7 +135,7 @@ Dois níveis de controle:
 
 Perfis padrão: `Supervisor` (fullAccess), `Representante`, `Analistas`, `Analistas Sênior`, `Estagiário`, `Financeiro`.
 
-Funções de verificação:
+Funções de verificação (em `core/auth.js`):
 ```js
 canAccess(pageKey)           // retorna boolean
 canBtn(pageKey, btnKey)      // retorna boolean
@@ -217,7 +217,7 @@ No Dashboard de Integração (gráfico `prazo_analista`), o prazo é calculado e
 
 ## 5. Modularização Realizada
 
-### 5.1 Extração do Sidebar — Web Component (V25)
+### 5.1 Extração do Sidebar — Web Component (V25) ✅
 
 A primeira etapa de modularização extraiu o componente **Sidebar** do `index_V24.html` (monolítico, ~6.100 linhas) para um **Web Component nativo** (`<db-sidebar>`), criando a base da arquitetura modular.
 
@@ -225,20 +225,10 @@ A primeira etapa de modularização extraiu o componente **Sidebar** do `index_V
 
 ```
 db-lab-manager/
-├── index_V25.html          ← documento host (monolítico, em processo de desmonte)
+├── index.html              ← documento host (shell mínimo)
 └── components/
     └── db-sidebar.js       ← Web Component: <db-sidebar>
 ```
-
-**Mudanças no `index_V25.html`:**
-- Removido o bloco `<aside id="sidebar">` (87 linhas de HTML)
-- Removidos os blocos CSS `/* SIDEBAR */` e `/* SIDEBAR USER PILL */`
-- `<script src="./components/db-sidebar.js" defer>` adicionado no `<head>`
-- `<db-sidebar id="sidebar">` no lugar do `<aside>`
-- `doLogin()` → usa `sidebar.setUser({ nome, perfil })` em vez de `getElementById` internos
-- `applyNavPermissions()` → usa `sidebar.hidePages([...])` em vez de `querySelectorAll('.nav-item')`
-- BOOT → `document.addEventListener('db-navigate')` em vez de `querySelectorAll('.nav-item').forEach`
-- Logout → `document.addEventListener('db-logout')` em vez de `getElementById('btn-logout')`
 
 **API pública do `<db-sidebar>`:**
 
@@ -254,293 +244,307 @@ db-lab-manager/
 | Evento `db-logout` | CustomEvent `{ detail: { user } }` — `composed: true` |
 
 **Lição aprendida (bug corrigido):**  
-CSS Custom Properties dentro do Shadow DOM NÃO devem ser redeclaradas com `--navy: var(--navy, fallback)` — isso cria referência circular e o browser descarta a variável. O correto é usar diretamente `background: var(--navy, #003761)`, aproveitando a herança natural das CSS Custom Properties através da fronteira do Shadow DOM.
+CSS Custom Properties dentro do Shadow DOM NÃO devem ser redeclaradas com `--navy: var(--navy, fallback)` — isso cria referência circular. O correto é usar diretamente `background: var(--navy, #003761)`, aproveitando a herança natural das CSS Custom Properties através da fronteira do Shadow DOM.
+
+---
 
 ### 5.2 Fase 1 — Extração de Utilitários e Infraestrutura (V26) ✅ CONCLUÍDO
-
-A segunda etapa extraiu toda a infraestrutura de suporte do `index_V25.html` para **4 módulos ES nativos** no diretório `core/`, eliminando 556 linhas do arquivo host.
 
 **Arquivos gerados:**
 
 ```
 db-lab-manager/
-├── index_V26.html          ← documento host (5.451 linhas; ↓556 em relação ao V25)
 └── core/
-    ├── db.js               ← IndexedDB: initDB, dbAll/Get/Put/Add/Delete/Clear, dbAddLogged, dbPutLogged, dbDeleteLogged, setAuditHook
-    ├── auth.js             ← Sessão: currentUser, doLogin, doLogout, auditLog, applyDataFilter, rlsBanner, canAccess, canBtn, applyNavPermissions, initDefaultAdmin
+    ├── db.js               ← IndexedDB: initDB, dbAll/Get/Put/Add/Delete/Clear,
+    │                          dbAddLogged, dbPutLogged, dbDeleteLogged, setAuditHook
+    ├── auth.js             ← Sessão: currentUser, doLogin, doLogout, auditLog,
+    │                          applyDataFilter, rlsBanner, canAccess, canBtn,
+    │                          applyNavPermissions, initDefaultAdmin
     ├── router.js           ← Roteador: pages, navigate, currentPage, NO_BANNER_PAGES
-    └── utils.js            ← Utilitários: toast, openModal, closeModal, makeSortable, generateReport, normalizeSupervisor, programaBadge, getIntStatus, getIntStatusLabel, renderIntStatusBadge
+    └── utils.js            ← Utilitários: toast, openModal, closeModal, makeSortable,
+                               generateReport, normalizeSupervisor, programaBadge,
+                               getIntStatus, getIntStatusLabel, renderIntStatusBadge,
+                               updateTopbar, downloadModeloCSV, downloadModeloEnvioCSV
 ```
 
-**Mudanças no `index_V26.html`:**
-- Adicionado `<script type="module">` que importa os 4 módulos antes do script inline
-- Removidos os blocos DB, AUTH, utils e navigate do script inline
-- BOOT refatorado: usa `initDB`, `doLogin`, `doLogout`, `canAccess`, `navigate` dos módulos
-- Todos os símbolos dos módulos reexpostos via `window.*` para compatibilidade com código inline das páginas ainda não modularizadas
-- `PERFIS_DEFAULT`, `buildDefaultPerms`, `ACL_STRUCTURE` e todas as `pages.*` permanecem inline (serão extraídos nas Fases 2 e 4)
-
-**Estratégia de compatibilidade retroativa:**
-- Módulos exportam via ES `export` E via `window.*` simultaneamente
-- Isso garante zero quebra no código inline das páginas durante a migração incremental
-- `router.js` expõe `window.navigate` e `window.pages` para que as páginas inline continuem registrando e navegando normalmente
-- `auth.js` usa `window.navigate('dashboard')` no `doLogin()` para evitar dependência circular `auth → router`
-- `db.js` aceita hook de auditoria via `setAuditHook(fn)` evitando dependência circular `db ← auth`
+**Padrão IIFE:** Todos os módulos `core/` usam o padrão IIFE clássico com `defer` (não ES Modules), registrando símbolos em `window.*` para compatibilidade com o script inline das páginas.
 
 **Decisão técnica — quebra de ciclo db ↔ auth:**
-`db.js` não pode importar `auth.js` (ciclo proibido em ES Modules síncronos). A solução adotada foi o padrão **dependency injection via setter**: `db.js` expõe `setAuditHook(fn)` e `auth.js` o chama logo após definir `auditLog`, injetando a função. Isso mantém `db.js` sem dependências e `auth.js` como único importador de `db.js`.
+`db.js` expõe `setAuditHook(fn)` e `auth.js` o chama após definir `auditLog`, injetando a função via dependency injection. Mantém `db.js` sem dependências e `auth.js` como único importador de `db.js`.
 
-**Métricas (após correção de escopo — ver §5.3):**
-
-| Arquivo | Linhas | Tamanho | Padrão |
-|---|---|---|---|
-| `core/db.js` | 227 | 9,7 KB | IIFE clássico |
-| `core/auth.js` | 207 | 9,8 KB | IIFE clássico |
-| `core/router.js` | 58 | 2,3 KB | IIFE clássico |
-| `core/utils.js` | 205 | 10,1 KB | IIFE clássico |
-| `index_V26.html` | 5.498 | 338 KB | host (rev3) |
+**Estratégia de compatibilidade retroativa:**
+- `router.js` reutiliza `window.pages` existente: `var pages = global.pages || {};` — garantindo que o `navigate()` interno e o script inline compartilhem exatamente o mesmo objeto.
+- BOOT envolto em `DOMContentLoaded` para garantir que os `defer` já executaram antes de chamar `initDB()`.
 
 ---
 
-### 5.3 Debug Fase 1 — Correção do Isolamento de Escopo ES Module (V26 → V26 rev2)
+### 5.3 Debug Fase 1 — Correção do Isolamento de Escopo ES Module (V26 → V26 rev3) ✅
 
-Após a entrega inicial da Fase 1 (V26), foi identificado que todas as páginas renderizavam em branco após o login. Análise do console apontou três bugs críticos interligados, todos com a mesma causa-raiz.
+Quatro bugs críticos foram identificados e corrigidos durante a Fase 1:
 
-**Causa-raiz: isolamento de escopo do `<script type="module">`**
+**Bug 1** — Escopo das funções de página: o `<script>` inline usava `pages`, `dbAll` etc. diretamente, que só existem no escopo do módulo ES.
 
-O padrão ES Module cria um escopo completamente isolado do escopo global da página. Mesmo atribuindo `window.X = fn` dentro de um módulo, o `<script>` clássico que precede ou executa em paralelo não encontra as funções porque:
+**Bug 2** — Referência primitiva de `currentUser`: módulos ES exportam o valor no momento da importação, nunca vendo reatribuições feitas por `doLogin()`.
 
-1. **Bug 1 — Escopo das funções de página:** O `<script>` inline usa `pages`, `dbAll`, `dbGet`, `currentUser`, etc. diretamente pelo nome — variáveis que só existem no escopo do módulo ES. `window.pages` é atribuído, mas o script inline usa `pages` (sem `window.`).
+**Bug 3** — Tempo de execução: `<script type="module">` executa como `defer` em escopo separado; código clássico poderia rodar antes.
 
-2. **Bug 2 — Referência primitiva de `currentUser`:** ES Modules exportam o *valor* de `let currentUser` no momento da importação (`null`). Funções importadas como `canAccess` e `applyDataFilter` capturam esse `null` e nunca veem a reatribuição feita por `doLogin()`. O objeto `currentUser` do módulo e o `window.currentUser` ficam dessincronizados.
+**Bug 4** — `pages is not defined`: script inline atribui `pages.X` imediatamente ao ser parseado, antes de qualquer `defer` executar. Solução: `var pages = {};` no topo do script inline + `router.js` reutiliza `global.pages || {}`.
 
-3. **Bug 3 — Tempo de execução:** O `<script type="module">` executa como `defer` automático (após o HTML ser parseado), mas em escopo separado. O `<script>` clássico inline executa no escopo global, podendo rodar antes do módulo ser resolvido e não encontrar as funções mesmo via `window.*`.
+**Solução adotada:** IIFEs clássicos com `defer` + `window.*` explícito. Módulos ES descartados para os arquivos `core/`.
 
-**Bug 4 — `pages is not defined` após migração para IIFE (V26 rev2 → rev3):**
-Após a correção dos bugs 1–3, o console apontou `Uncaught ReferenceError: pages is not defined`. O `<script>` inline atribui `pages.dashboard = async function(){...}` no escopo top-level, que executa **imediatamente ao ser parseado** — antes que qualquer script `defer` (incluindo o `router.js`) execute. Dois erros encadeados:
+---
 
-1. O script inline não tinha `var pages = {}` — o `router.js` criava o objeto, mas chegava tarde (após o parse do inline)
-2. O `router.js` criava seu próprio `pages = {}` local e o atribuía a `window.pages` — um objeto **diferente** do que o `navigate()` interno usava. Mesmo que chegasse a tempo, as funções de página estariam no `window.pages` e o `navigate()` chamaria um `pages` vazio.
+### 5.4 Fase 2 — Extração de Motores de Importação (V27) ✅ CONCLUÍDO
 
-**Solução adotada — IIFE + bridging + reutilização de window.pages**
+**Arquivos gerados:**
 
-Aplicadas em duas etapas:
-
-*Etapa 1 (bugs 1–3):* Módulos reescritos como IIFE clássicos com `defer`.
-
-*Etapa 2 (bug 4):* Duas correções cirúrgicas adicionais:
-- Adicionado `var pages = {};` e `var currentPage = '';` no **topo do `<script>` inline**, antes de qualquer `pages.X = async function()`. Isso garante que o parse do script inline nunca falhe, mesmo sem os defer executados.
-- `router.js` corrigido para **reutilizar** o `window.pages` existente: `var pages = global.pages || {};` seguido de `global.pages = pages;`. Isso garante que o `navigate()` interno e o script inline compartilhem **exatamente o mesmo objeto**.
-
-**Solução adotada — IIFE com auto-registro `window.*`**
-
-Os 4 módulos foram reescritos como **scripts clássicos IIFE** (`Immediately Invoked Function Expression`), carregados com `<script src defer>`, que:
-
-- Executam no escopo global após o DOM estar pronto (graças a `defer`)
-- Registram *todas* as funções e variáveis em `window.*` explicitamente
-- Mantêm `currentUser` numa variável local de closure — todas as funções do módulo a acessam corretamente via closure, não por referência exportada
-- Sincronizam `window.currentUser` manualmente em `doLogin()` e `doLogout()` para o código inline que lê a referência global
-
-**Padrão de carregamento resultante no `index_V26.html`:**
-
-```html
-<head>
-  <!-- Bibliotecas externas (síncronas) -->
-  <script src="xlsx.full.min.js"></script>
-  <script src="chart.umd.min.js"></script>
-  <!-- Web Component -->
-  <script src="./components/db-sidebar.js" defer></script>
-  <!-- Módulos core — IIFE, carregados com defer em ordem -->
-  <script src="./core/db.js"     defer></script>
-  <script src="./core/auth.js"   defer></script>
-  <script src="./core/router.js" defer></script>
-  <script src="./core/utils.js"  defer></script>
-</head>
-<body>
-  <!-- ... HTML ... -->
-  <script>
-    // Script inline das páginas — acessa window.* populado pelos módulos defer
-    pages.dashboard = async function() { ... }
-    // ...
-    // BOOT — envolto em DOMContentLoaded para garantir que os defer já executaram
-    document.addEventListener('DOMContentLoaded', function () {
-      initDB().then(...);
-    });
-  </script>
-</body>
+```
+db-lab-manager/
+└── import/
+    ├── import-g5.js          ← processImport(), IGNORE_REP, downloadModeloCSV()
+    ├── import-envio.js       ← processEnvioImport(), processEnvioImportStreaming(),
+    │                            ENVIO_SEM_INT, ENVIO_CONV, ENVIO_WS, getTipoIntExpected()
+    └── import-esmeralda.js   ← processEsmeraldaImport(), mapCategoriaEsmeralda()
 ```
 
-**Lição documentada para fases seguintes:**
-
-> Módulos ES (`type="module"`) e scripts clássicos (`<script>`) não compartilham escopo global. Para a Fase 1, onde as páginas ainda residem em script clássico inline, a abordagem IIFE com `window.*` é a única compatível sem reescrever todas as páginas. Quando as páginas forem extraídas para módulos próprios na Fase 4, a migração para `import/export` nativo poderá ser retomada.
+Todos expostos via `window.*` para compatibilidade com código de página.
 
 ---
 
+### 5.5 Fase 3 — Web Components de Estrutura ✅ CONCLUÍDO
+
+**Arquivos gerados:**
+
+```
+db-lab-manager/
+└── components/
+    ├── db-sidebar.js    ← ✅ (V25)
+    ├── db-topbar.js     ← ✅ Topbar com slot "actions", eventos db-topbar-action
+    ├── db-login.js      ← ✅ Formulário de login, eventos db-login-submit,
+    │                        métodos getCredentials(), setError(), reset(), focus()
+    ├── db-toast.js      ← ✅ Notificações toast, método show(msg, type, duration),
+    │                        compatibilidade via window.toast()
+    └── db-modal.js      ← ✅ Modal declarativo, métodos open(html, onClose) e close(),
+                             compatibilidade via window.openModal() e window.closeModal()
+```
+
+**Observação sobre `openModal` / `closeModal`:** Existe duplicação de implementação. `core/utils.js` ainda define `openModal()` e `closeModal()` apontando para `#modal-container` (elemento que não existe mais no HTML). A implementação canônica e ativa é a de `components/db-modal.js`, que registra as funções globais e delega ao `<db-modal id="modal">`. **A implementação em `utils.js` é código morto e deve ser removida na Fase 5.**
+
+**`updateTopbar()` adicionada em `utils.js`:** Função helper que atualiza `title`, `subtitle` e o slot `actions` do `<db-topbar>`, usada por todas as páginas extraídas. Não foi prevista originalmente na documentação — emergiu durante a extração das páginas.
+
 ---
 
-## 6. Etapas de Modularização — To-Do List
+### 5.6 Fase 4 — Extração de Páginas ✅ CONCLUÍDO (com ressalvas — ver bugs conhecidos)
+
+**Arquivos gerados:**
+
+```
+db-lab-manager/
+└── pages/
+    ├── dashboard.js              ← ✅ Dashboard Integração
+    ├── dashboard_comercial.js    ← ✅ Dashboard Comercial (heatmap SVG, gráficos)
+    ├── dashboard_financeiro.js   ← ✅ Dashboard Financeiro
+    ├── laboratorios.js           ← ✅ Laboratórios (tabela, filtros, chamados inline)
+    ├── representantes.js         ← ✅ CRUD Representantes
+    ├── assessores.js             ← ✅ Visualização Esmeralda/Chivor
+    ├── supervisores.js           ← ✅ CRUD Supervisores
+    ├── analistas.js              ← ✅ CRUD Analistas + modal de performance
+    ├── sistemas.js               ← ✅ CRUD Sistemas (inclui openAnalistaViewModal)
+    ├── grupos_matrizes.js        ← ✅ Consulta hierárquica
+    ├── divergencias.js           ← ✅ Motor de divergências + filtros + accordion
+    ├── propostas.js              ← ✅ CRUD Propostas
+    ├── pacotes.js                ← ✅ CRUD Pacotes + registros
+    ├── importacao.js             ← ✅ Upload + progresso + histórico
+    └── perfis_acesso.js          ← ⚠️ CONCLUÍDO COM BUG — ver abaixo
+```
+
+**Padrão de todos os módulos de página:**
+```js
+(function (global) {
+  'use strict';
+  var pages = global.pages || {};
+  global.pages = pages;
+  pages.nome_da_pagina = async function() { ... };
+})(window);
+```
+
+**⚠️ Bug conhecido — `pages/perfis_acesso.js`:**  
+O arquivo contém um erro de sintaxe no final do arquivo — a palavra isolada `as` após o comentário `// ===================== USER MODAL =====================`. Isso causa `SyntaxError` em runtime quando o script é carregado. A função `openUserModal` definida no `index.html` inline é a que está em uso; a do módulo nunca foi completada. **Correção pendente: remover o fragmento inválido `as` e, se desejado, migrar `openUserModal` do inline para este módulo.**
+
+**Inconsistência de nomenclatura:**  
+A FASE 5 da documentação anterior mencionava `dashboard-comercial.js` e `dashboard-financeiro.js` (com hífen), mas os arquivos reais usam underscore (`dashboard_comercial.js`, `dashboard_financeiro.js`), consistente com as chaves de rota usadas em `pages.dashboard_comercial` e `pages.dashboard_financeiro`. A documentação estava incorreta; os arquivos reais estão corretos.
+
+**`openAnalistaViewModal` em `sistemas.js`:**  
+Esta função foi incluída em `pages/sistemas.js` em vez de `pages/analistas.js`. É um resíduo do processo de extração incremental. Functionally não há quebra (a função é acessível), mas semanticamente pertence ao módulo de analistas. Refatoração recomendada na Fase 5.
+
+---
+
+## 6. Estado Atual da Estrutura de Arquivos
+
+```
+db-lab-manager/
+├── index.html                      ← Shell: <db-login>, <db-sidebar>, <db-topbar>,
+│                                      <db-modal>, <db-toast>, boot em DOMContentLoaded
+│                                      Ainda contém inline: ACL_STRUCTURE, PERFIS_DEFAULT,
+│                                      buildDefaultPerms(), openUserModal(), toggleAcc()
+│
+├── core/
+│   ├── db.js                       ← ✅ IIFE, window.*, setAuditHook
+│   ├── auth.js                     ← ✅ IIFE, window.*, RLS, ACL
+│   ├── router.js                   ← ✅ IIFE, window.navigate, window.pages
+│   └── utils.js                    ← ✅ IIFE, window.* — contém openModal/closeModal
+│                                      duplicados (código morto, ver §5.5)
+│
+├── components/
+│   ├── db-sidebar.js               ← ✅ Custom Element, Shadow DOM
+│   ├── db-topbar.js                ← ✅ Custom Element, Shadow DOM, slot "actions"
+│   ├── db-login.js                 ← ✅ Custom Element, Shadow DOM
+│   ├── db-toast.js                 ← ✅ Custom Element, Shadow DOM
+│   └── db-modal.js                 ← ✅ Custom Element, Shadow DOM
+│
+├── import/
+│   ├── import-g5.js                ← ✅ processImport, IGNORE_REP
+│   ├── import-envio.js             ← ✅ processEnvioImport, streaming, constantes
+│   └── import-esmeralda.js         ← ✅ processEsmeraldaImport, mapCategoriaEsmeralda
+│
+├── pages/
+│   ├── dashboard.js                ← ✅
+│   ├── dashboard_comercial.js      ← ✅
+│   ├── dashboard_financeiro.js     ← ✅
+│   ├── laboratorios.js             ← ✅
+│   ├── representantes.js           ← ✅
+│   ├── assessores.js               ← ✅
+│   ├── supervisores.js             ← ✅
+│   ├── analistas.js                ← ✅
+│   ├── sistemas.js                 ← ✅ (contém openAnalistaViewModal — ver §5.6)
+│   ├── grupos_matrizes.js          ← ✅
+│   ├── divergencias.js             ← ✅
+│   ├── propostas.js                ← ✅
+│   ├── pacotes.js                  ← ✅
+│   ├── importacao.js               ← ✅
+│   └── perfis_acesso.js            ← ✅ SyntaxError `as` corrigido
+│
+└── DB_LAB_MANAGER_PROJECT.md       ← esta documentação
+```
+
+---
+
+## 7. Etapas de Modularização — Status Completo
 
 ### FASE 1 — Extração de utilitários e infraestrutura ✅ CONCLUÍDO (V26)
 
-- [x] **`core/db.js`** — `initDB`, `dbAll`, `dbGet`, `dbPut`, `dbAdd`, `dbDelete`, `dbClear`, `dbAddLogged`, `dbPutLogged`, `dbDeleteLogged`, `setAuditHook`. Exportado como módulo ES. **Sem mudança de comportamento.**
-- [x] **`core/auth.js`** — `currentUser`, `doLogin`, `doLogout`, `auditLog`, `applyDataFilter`, `rlsBanner`, `canAccess`, `canBtn`, `applyNavPermissions`, `initDefaultAdmin`. Depende de `core/db.js`.
-- [x] **`core/router.js`** — `pages`, `navigate()`, `currentPage`, `NO_BANNER_PAGES`. Depende de `core/auth.js`. Expõe `window.navigate` e `window.pages` para compatibilidade retroativa.
-- [x] **`core/utils.js`** — `toast()`, `openModal()`, `closeModal()`, `makeSortable()`, `generateReport()`, `normalizeSupervisor()`, `programaBadge()`, `getIntStatus()`, `getIntStatusLabel()`, `renderIntStatusBadge()`. Expõe todos via `window.*`.
+- [x] `core/db.js`
+- [x] `core/auth.js`
+- [x] `core/router.js`
+- [x] `core/utils.js`
 
 ---
 
 ### FASE 2 — Extração de motores de importação ✅ CONCLUÍDO (V27)
 
-- [x] **`import-g5.js`** — `processImport()`, `IGNORE_REP`, `normalizeSupervisor()`, `downloadModeloCSV()`
-- [x] **`import-envio.js`** — `processEnvioImport()`, `processEnvioImportStreaming()`, `downloadModeloEnvioCSV()`
-- [x] **`import-esmeralda.js`** — `processEsmeraldaImport()`, `mapCategoriaEsmeralda()`
-- [x] Constantes de classificação de envio: `ENVIO_SEM_INT`, `ENVIO_CONV`, `ENVIO_WS`, `getTipoIntExpected()`
-
-**Alterações realizadas:**
-- Criada pasta `import/` com 3 módulos JS (defer).
-- Removidos ~323 linhas do script inline (blocos de engines + constantes).
-- Adicionados scripts no `<head>`: `import-g5.js`, `import-envio.js`, `import-esmeralda.js`.
-- Funções expostas via `window.*` para compatibilidade com chamadas no inline.
-- Ordem de carregamento defer garante dependências (`db.js`, `utils.js`, `auth.js` antes dos imports).
+- [x] `import/import-g5.js`
+- [x] `import/import-envio.js`
+- [x] `import/import-esmeralda.js`
+- [x] Constantes de classificação: `ENVIO_SEM_INT`, `ENVIO_CONV`, `ENVIO_WS`, `getTipoIntExpected()`
 
 ---
 
-### FASE 3 — Web Components de estrutura
+### FASE 3 — Web Components de estrutura ✅ CONCLUÍDO
 
-**Análise das alterações necessárias:**
-
-- [x] **`db-topbar.js`** — Extrair `<div class="topbar">`: título da página, subtítulo, botões de ação (`#topbar-actions`). Evento `db-topbar-action`.
-  - **Estrutura atual:** HTML estático no index.html, manipulado via `document.getElementById('page-title').textContent`, `document.getElementById('page-sub').textContent`, `document.getElementById('topbar-actions').innerHTML`.
-  - **Alterações:** Criar Web Component `<db-topbar>` que encapsula o HTML e expõe propriedades `title`, `subtitle`, `actions` (innerHTML). Disparar evento customizado `db-topbar-action` quando botões são clicados.
-  - **Benefício:** Centraliza lógica de UI da topbar, facilita manutenção e reutilização.
-
-- [x] **`db-login.js`** — Extrair `<div id="login-screen">` com lógica de login, validação e erro.
-  - **Estrutura atual:** HTML estático no index.html, lógica de login em `core/auth.js` (funções `showLogin()`, `hideLogin()`, `login()`).
-  - **Alterações:** Criar Web Component `<db-login>` que encapsula o HTML do formulário e a lógica de autenticação. Usar propriedades para estado (visível/oculto, erro) e eventos para comunicação (login-success, login-error).
-  - **Benefício:** Separa completamente a UI de login do core de autenticação, permitindo testes isolados e reutilização.
-
-- [x] **`db-toast.js`** — Extrair `<div id="toast">` e a função `toast()`.
-  - **Estrutura atual:** HTML estático (`<div id="toast"></div>`), função `toast()` em `core/utils.js`.
-  - **Alterações:** Criar Web Component `<db-toast>` que gerencia sua própria lista de toasts internamente. Expor método `show(msg, type, duration)` via propriedade ou evento. Remover `toast()` de utils.js.
-  - **Benefício:** Encapsula estado e lógica dos toasts, evita manipulação direta do DOM global.
-
-- [x] **`db-modal.js`** — Extrair `openModal()` / `closeModal()` como componente controlado.
-  - **Estrutura atual:** Funções `openModal()` e `closeModal()` em `core/utils.js`, criam elementos dinamicamente no `#modal-container`.
-  - **Alterações:** Criar Web Component `<db-modal>` que seja controlado por propriedades (open: boolean, content: string). Remover funções de utils.js, usar o componente diretamente no código.
-  - **Benefício:** Torna modais declarativos e reutilizáveis, facilita testes e manutenção.
-
-**Alterações no index.html:**
-- ✅ Substituir `<div class="topbar">` por `<db-topbar id="topbar"></db-topbar>`.
-- ✅ Substituir `<div id="login-screen">` por `<db-login id="login"></db-login>`.
-- ✅ Substituir `<div id="toast"></div>` por `<db-toast id="toast"></db-toast>`.
-- ✅ Substituir `<div id="modal-container"></div>` por `<db-modal id="modal"></db-modal>`.
-- ✅ Remover estilos de `.modal-overlay`, `.modal`, `.modal-*` (agora em Shadow DOM).
-
-- Adicionar scripts: `<script src="./components/db-topbar.js" defer></script>`, etc.
-
-**Impacto:** Refatora UI para componentes Web, melhorando separação de responsabilidades. Código das páginas precisará ser ajustado para usar APIs dos componentes em vez de manipulação direta do DOM.
+- [x] `components/db-topbar.js`
+- [x] `components/db-login.js`
+- [x] `components/db-toast.js`
+- [x] `components/db-modal.js`
 
 ---
 
-### FASE 4 — Extração de páginas (maior impacto, fazer uma por vez)
+### FASE 4 — Extração de páginas ✅ CONCLUÍDO (revisão final)
 
-A estratégia será retirar uma página por vez, começando pela página de dashboard principal.
+- [x] `pages/dashboard.js`
+- [x] `pages/dashboard_comercial.js`
+- [x] `pages/dashboard_financeiro.js`
+- [x] `pages/laboratorios.js`
+- [x] `pages/representantes.js`
+- [x] `pages/assessores.js`
+- [x] `pages/supervisores.js`
+- [x] `pages/analistas.js`
+- [x] `pages/sistemas.js`
+- [x] `pages/grupos_matrizes.js`
+- [x] `pages/divergencias.js`
+- [x] `pages/propostas.js`
+- [x] `pages/pacotes.js`
+- [x] `pages/importacao.js`
+- [x] `pages/perfis_acesso.js` ✅ — SyntaxError (`as` isolado) removido
 
-Cada página deve se tornar um módulo `pages/[nome].js` exportando uma função `async render(container)`.
-
-- [x] **`pages/dashboard.js`** — Dashboard Integração (gráficos dinâmicos, métricas, relatório)
-- [x] **`pages/dashboard-comercial.js`** — Dashboard Comercial (heatmap SVG, gráficos, filtro de período)
-- [x] **`pages/dashboard-financeiro.js`** — Dashboard Financeiro (budget, propostas, gráficos)
-- [x] **`pages/laboratorios.js`** — Lista + filtros + modal edição + chamados inline
-- [x] **`pages/representantes.js`** — CRUD de representantes
-- [x] **`pages/assessores.js`** — Visualização Esmeralda/Chivor
-- [x] **`pages/supervisores.js`** — CRUD de supervisores
-- [x] **`pages/analistas.js`** — CRUD + modal de performance
-- [x] **`pages/sistemas.js`** — CRUD de sistemas
-- [x] **`pages/grupos_matrizes.js`** — Consulta hierárquica
-- [x] **`pages/divergencias.js`** — Motor de divergências + filtros
-- [x] **`pages/propostas.js`** — CRUD de propostas
-- [x] **`pages/pacotes.js`** — CRUD de pacotes + registros
-- [x] **`pages/importacao.js`** — Upload + progresso + histórico
-- [x] **`pages/perfis_acesso.js`** — ACL + usuários + audit log
-
----
-
-### FASE 5 — Estrutura final do projeto
-
-```
-db-lab-manager/
-├── index.html                     ← shell mínimo: <db-sidebar>, <db-topbar>, <main>
-├── app.js                         ← boot: initDB → doLogin → navigate
-│
-├── core/                          ← módulos core (IIFE clássicos)
-│   ├── db.js                      ← IndexedDB: dbAll, dbGet, dbPut, dbAdd, dbDelete
-│   ├── auth.js                    ← login/logout, currentUser, auditLog
-│   ├── router.js                  ← navigate(), pages object
-│   └── utils.js                   ← makeSortable, generateReport, normalizeSupervisor, etc.
-│
-├── components/                    ← Web Components (Custom Elements)
-│   ├── db-sidebar.js              ← navegação lateral
-│   ├── db-topbar.js               ← ✅ Concluído (FASE 3)
-│   ├── db-login.js                ← ✅ Concluído (FASE 3)
-│   ├── db-toast.js                ← ✅ Concluído (FASE 3)
-│   └── db-modal.js                ← ✅ Concluído (FASE 3)
-│
-├── import/                        ← engines de importação (IIFE clássicos)
-│   ├── import-g5.js               ← processImport()
-│   ├── import-envio.js            ← processEnvioImport(), processEnvioImportStreaming()
-│   └── import-esmeralda.js        ← processEsmeraldaImport()
-│
-├── pages/                         ← módulos de páginas (ES modules)
-│   ├── dashboard.js
-│   ├── dashboard-comercial.js
-│   ├── dashboard-financeiro.js
-│   ├── laboratorios.js
-│   ├── representantes.js
-│   ├── assessores.js
-│   ├── supervisores.js
-│   ├── analistas.js
-│   ├── sistemas.js
-│   ├── grupos-matrizes.js
-│   ├── divergencias.js
-│   ├── propostas.js
-│   ├── pacotes.js
-│   ├── importacao.js
-│   └── perfis_acesso.js
-│
-└── DB_LAB_MANAGER_PROJECT.md       ← esta documentação
-```
-    ├── propostas.js               ← (Fase 4)
-    ├── pacotes.js                 ← (Fase 4)
-    ├── importacao.js              ← (Fase 4)
-    └── perfis_acesso.js           ← (Fase 4)
-```
+**Correções da revisão final da Fase 4:**
+- [x] Corrigido SyntaxError em `pages/perfis_acesso.js` (token `as` isolado removido)
+- [x] `openAnalistaViewModal()` migrada de `pages/sistemas.js` para `pages/analistas.js` + exportada como `window.openAnalistaViewModal`
+- [x] `openAnalistaModal()` exportada como `window.openAnalistaModal` (necessário para chamadas via onclick-string em innerHTML)
+- [x] `openSysViewModal()` e `openSysModal()` exportadas como `window.*` em `pages/sistemas.js` (linha de modal-footer usa `onclick="openSysModal(...)"` — string avaliada no escopo global)
+- [ ] Migrar `openUserModal()` do `index.html` inline para `pages/perfis_acesso.js` *(requer acesso ao index.html — pendente para Fase 5)*
+- [ ] Remover `openModal()` / `closeModal()` duplicados de `core/utils.js` *(requer acesso ao utils.js — pendente para Fase 5)*
+- [ ] Confirmar acessibilidade global de `switchImportTab` em `pages/importacao.js` *(requer acesso ao arquivo — pendente)*
 
 ---
 
-### FASE 6 — Melhorias técnicas pós-modularização
+### FASE 5 — Estrutura final do projeto 🔲 PENDENTE
 
-- [x] Adicionar `type="module"` nos scripts (ES Modules nativos) — ✅ Concluído na Fase 1 (V26)
-- [ ] Substituir `innerHTML` por `DocumentFragment` nas páginas de alta frequência de atualização (laboratorios, divergencias)
-- [ ] Separar o CSS global em `styles/theme.css` (variáveis `:root`) e `styles/base.css` (reset + utilitários)
+Objetivo: `index.html` como shell verdadeiramente mínimo, sem nenhum código de aplicação inline.
+
+**Itens pendentes:**
+
+- [ ] Extrair `ACL_STRUCTURE` do inline do `index.html` para um módulo (ex: `core/acl.js` ou `pages/perfis_acesso.js`)
+- [ ] Extrair `PERFIS_DEFAULT` e `buildDefaultPerms()` do inline para `core/auth.js` ou `core/acl.js`
+- [ ] Extrair `openUserModal()` do inline para `pages/perfis_acesso.js`
+- [ ] Extrair `toggleAcc()` / `window.toggleAcc` do inline (já existe `window._divToggleAcc` em `divergencias.js` — apenas o proxy global pode ficar)
+- [ ] Criar `app.js` — módulo de boot: `initDB → initDefaultAdmin → seedPerfis → focus no login`
+- [ ] Remover `openModal()` / `closeModal()` de `core/utils.js` (implementação canônica está em `db-modal.js`)
+- [ ] Avaliar migração de `Shadow DOM mode: 'open'` para `'closed'` nos componentes estabilizados
+- [ ] Padronizar nomenclatura: `dashboard_comercial` vs `dashboard-comercial` (usar underscore, que é o padrão atual dos arquivos)
+
+---
+
+### FASE 6 — Melhorias técnicas pós-modularização 🔲 PENDENTE
+
+- [ ] Substituir `innerHTML` por `DocumentFragment` nas páginas de alta frequência de atualização (`laboratorios.js`, `divergencias.js` como prioridade)
+- [ ] Separar o CSS global em `styles/theme.css` (variáveis `:root`) e `styles/base.css` (reset + utilitários) — atualmente todo o CSS está inline no `index.html`
 - [ ] Adicionar hash routing (`#dashboard`) para que o browser preserve a página ao recarregar
-- [ ] Implementar paginação server-side simulada para clientes (atualmente carrega tudo na memória)
+- [ ] Implementar paginação server-side simulada para clientes (atualmente carrega tudo na memória via `dbAll`)
 - [ ] Adicionar export de dados (JSON backup / restore do IndexedDB)
 - [ ] Implementar feriados nacionais no cálculo de dias úteis dos analistas
+- [ ] Migrar `core/*.js` e `pages/*.js` de IIFE para `import/export` nativos (ES Modules) — viável somente após todas as páginas estarem extraídas e o script inline do `index.html` eliminado
 
 ---
 
-## 7. Decisões de Arquitetura
+## 8. Decisões de Arquitetura
 
 | Decisão | Justificativa |
 |---|---|
 | **Web Components nativos** (sem React/Vue) | O projeto já usa JS puro sem build step. Introduzir um framework criaria segunda camada de runtime sem ganho. |
 | **Shadow DOM `mode: 'open'`** | Permite inspeção via `element.shadowRoot` durante a migração incremental. Mudança para `closed` fica para a Fase 5. |
 | **CSS Custom Properties para theming** | Único mecanismo que herda através da fronteira do Shadow DOM. Garante que `--navy`, `--accent` etc. do `:root` funcionem dentro dos componentes. |
-| **IIFE + `window.*` para módulos da Fase 1** | `<script type="module">` isola o escopo — `window.X` atribuído dentro de um módulo não é visível para scripts clássicos em tempo de execução. IIFE com `defer` garante ordem de carregamento e escopo global compartilhado, sem quebrar o código inline das páginas ainda não modularizadas. |
+| **IIFE + `window.*` para módulos `core/` e `pages/`** | `<script type="module">` isola o escopo — `window.X` atribuído dentro de um módulo não é visível para scripts clássicos em tempo de execução. IIFE com `defer` garante ordem de carregamento e escopo global compartilhado. Migração para `import/export` nativo fica para a Fase 6 (após eliminar o inline). |
 | **`CustomEvent` com `composed: true`** | Eventos dentro do Shadow DOM ficam presos. `composed: true` faz o evento cruzar a fronteira e ser capturado no `document` do host. |
 | **IndexedDB sem biblioteca** | Mantém zero dependências externas além de XLSX.js e Chart.js. |
-| **Migração incremental** | Cada fase mantém o sistema funcionando. Não há "big bang rewrite". O `index_V26.html` ancora as Fases 1–4 sem quebrar funcionalidade. A cada fase, menos código inline e mais módulos. |
+| **Migração incremental** | Cada fase mantém o sistema funcionando. Não há "big bang rewrite". O `index.html` ancora as fases sem quebrar funcionalidade. A cada fase, menos código inline e mais módulos. |
+| **`updateTopbar()` em `utils.js`** | Helper emergiu durante a extração das páginas para evitar repetição do padrão `topbar.title = X; topbar.subtitle = Y; topbar.appendChild(...)` em todos os 15 módulos de página. |
+| **Dependency injection via `setAuditHook`** | Evita ciclo de importação `db ← auth`. `db.js` não importa `auth.js`; `auth.js` injeta `auditLog` via setter após inicializar. |
 
 ---
 
-*Documento atualizado em: maio de 2026 — Fase 1 concluída + debug completo (§5.3, 4 bugs) · DB Lab Manager — Diagnósticos do Brasil*
+## 9. Bugs Conhecidos e Dívidas Técnicas
+
+| Arquivo | Tipo | Descrição | Prioridade |
+|---|---|---|---|
+| `pages/perfis_acesso.js` | ~~Bug crítico~~ **Resolvido** | `SyntaxError`: token `as` isolado removido | ✅ |
+| `pages/analistas.js` | ~~Acoplamento~~ **Resolvido** | `openAnalistaViewModal()` migrada de `sistemas.js` + exportada como `window.*` | ✅ |
+| `pages/sistemas.js` | ~~Bug latente~~ **Resolvido** | `openSysViewModal()` e `openSysModal()` exportadas como `window.*` (exigido por onclick-string no modal-footer) | ✅ |
+| `core/utils.js` | Código morto | `openModal()` e `closeModal()` apontam para `#modal-container` que não existe; implementação real está em `db-modal.js` | 🟡 Média |
+| `index.html` | Inline remanescente | `ACL_STRUCTURE`, `PERFIS_DEFAULT`, `buildDefaultPerms()`, `openUserModal()` ainda no script inline | 🟡 Média |
+| `pages/importacao.js` | Possível bug | `switchImportTab()` é chamado via `onclick` no HTML mas definida dentro do escopo de `pages.importacao` — verificar se está acessível globalmente | 🟡 Média |
+| Todos os `pages/*.js` | Performance | Uso extensivo de `innerHTML` para renderização — sem virtualização ou `DocumentFragment` | 🟢 Baixa |
+| `core/*.js` e `pages/*.js` | Arquitetura | IIFEs deverão ser migrados para ES Modules nativos após eliminação do script inline | 🟢 Baixa |
+
+---
+
+*Documento atualizado em: maio de 2026 — Fases 1–4 concluídas (revisão final da Fase 4 aplicada: exports window.*, SyntaxError corrigido, openAnalistaViewModal migrada) · DB Lab Manager — Diagnósticos do Brasil*

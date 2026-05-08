@@ -11,6 +11,8 @@
 <script src="./core/auth.js?v=5" defer></script>
 <script src="./core/router.js?v=2" defer></script>
 <script src="./core/utils.js?v=2" defer></script>
+<!-- 1b. Core ACL — deve vir ANTES de pages/perfis_acesso.js -->
+<script src="./core/acl.js?v=1" defer></script>
 <!-- 2. Import engines (dependem de core) -->
 <script src="./import/import-g5.js" defer></script>
 <script src="./import/import-envio.js" defer></script>
@@ -27,8 +29,10 @@
 <script src="./pages/representantes.js" defer></script>
 <script src="./pages/assessores.js" defer></script>
 <script src="./pages/supervisores.js" defer></script>
+<script src="./pages/gerentes.js" defer></script>
 <script src="./pages/analistas.js" defer></script>
 <script src="./pages/sistemas.js" defer></script>
+<script src="./pages/chamados.js" defer></script>
 <script src="./pages/importacao.js" defer></script>
 <script src="./pages/divergencias.js" defer></script>
 <script src="./pages/propostas.js" defer></script>
@@ -520,225 +524,27 @@
 <db-toast id="toast"></db-toast>
 
 <script>
-// ── Declarações de bridging — garantem que o script inline parse sem erro ──
-// O script inline executa imediatamente ao ser parseado, antes dos defer.
-// Variáveis usadas no escopo top-level (atribuições a pages.X, let labPage,
-// const LAB_PER_PAGE) precisam existir. O router.js (defer) se conecta ao
-// mesmo objeto window.pages após carregar.
+// ── FASE 5 — Script inline mínimo ──────────────────────────────────────────
+// Todo o código de aplicação foi extraído para módulos:
+//   ACL_STRUCTURE, PERFIS_DEFAULT, buildDefaultPerms  → core/acl.js
+//   openUserModal                                      → pages/perfis_acesso.js
+//   pages.perfis_acesso                                → pages/perfis_acesso.js
+//
+// Este inline mantém apenas:
+//   1. var pages / var currentPage — bridging para que o parser não lance
+//      ReferenceError antes dos defer executarem (router.js reutiliza window.pages)
+//   2. toggleAcc — proxy fino para window._divToggleAcc (divergencias.js)
+//   3. Boot em DOMContentLoaded — sequência de inicialização da aplicação
+
 var pages = {};
 var currentPage = '';
 
-// ===================== PAGE: PERFIS DE ACESSO E USUÁRIOS =====================
-
-// ACL Configuration — defines all controllable pages and their buttons
-const ACL_STRUCTURE = [
-  { cat:'Visão Geral', pages:[
-    { key:'dashboard',           label:'Dashboard Integração',  btns:[{key:'dash-int-report',label:'Gerar Relatório'}] },
-    { key:'dashboard_comercial', label:'Dashboard Comercial',   btns:[{key:'dash-com-report',label:'Gerar Relatório'}] },
-    { key:'dashboard_financeiro',label:'Dashboard Financeiro',  btns:[{key:'dash-fin-report',label:'Gerar Relatório'},{key:'budget-save',label:'Salvar Budget'}] },
-  ]},
-  { cat:'Cadastros', pages:[
-    { key:'laboratorios',   label:'Laboratórios',     btns:[{key:'edit-btn',label:'Botão Editar'}] },
-    { key:'representantes', label:'Representantes',   btns:[{key:'new-rep-btn',label:'Novo Representante'},{key:'edit-btn',label:'Botão Editar'}] },
-    { key:'supervisores',   label:'Supervisores',     btns:[{key:'new-sup-btn',label:'Novo Supervisor'},{key:'edit-btn',label:'Botão Editar'}] },
-    { key:'assessores',     label:'Assessores',       btns:[{key:'edit-btn',label:'Botão Editar'}] },
-    { key:'analistas',      label:'Analistas',        btns:[{key:'new-ana-btn',label:'Novo Analista'},{key:'edit-btn',label:'Botão Editar'}] },
-    { key:'sistemas',       label:'Sistemas',         btns:[{key:'new-sys-btn',label:'Novo Sistema'},{key:'edit-btn',label:'Botão Editar'}] },
-    { key:'grupos_matrizes',label:'Grupos e Matrizes',btns:[{key:'edit-btn',label:'Botão Editar'}] },
-  ]},
-  { cat:'Análise', pages:[
-    { key:'divergencias', label:'Divergências', btns:[] },
-  ]},
-  { cat:'Financeiro', pages:[
-    { key:'propostas', label:'Propostas', btns:[{key:'new-prop-btn',label:'Nova Proposta'},{key:'edit-btn',label:'Botão Editar'}] },
-    { key:'pacotes',   label:'Pacotes',   btns:[{key:'new-pac-btn',label:'Novo Pacote'},{key:'edit-btn',label:'Botão Editar'}] },
-  ]},
-  { cat:'Operações', pages:[
-    { key:'importacao',     label:'Importação',                  btns:[{key:'clear-data-btn',label:'Limpar Dados'}] },
-    { key:'perfis_acesso',  label:'Perfis de acesso e usuários', btns:[] },
-  ]},
-];
-
-const PERFIS_DEFAULT = [
-  { id:'supervisor',       nome:'Supervisor',      fullAccess: true  },
-  { id:'representante',    nome:'Representante',   fullAccess: false },
-  { id:'analistas',        nome:'Analistas',       fullAccess: false },
-  { id:'analistas_senior', nome:'Analistas Sênior',fullAccess: false },
-  { id:'estagiario',       nome:'Estagiário',      fullAccess: false },
-  { id:'financeiro',       nome:'Financeiro',      fullAccess: false },
-];
-
-function buildDefaultPerms() {
-  const p = {};
-  for(const cat of ACL_STRUCTURE)
-    for(const pg of cat.pages){
-      p[pg.key] = true;
-      for(const btn of pg.btns) p[`${pg.key}::${btn.key}`] = true;
-    }
-  return p;
-}
-
-async function openUserModal(login, perfis, refresh) {
-  // ── BUG FIX: nunca chamar dbGet com null — causa DataError no IndexedDB ──
-  let user = null;
-  const isNew = !login;
-  if (!isNew) {
-    try { user = await dbGet('usuarios', login); } catch(e) { user = null; }
-  }
-  if (!user) {
-    user = { login:'', nome:'', senha:'', perfilId:'analistas', perfilNome:'Analistas', isAdmin:false,
-             entityType:'', entityId:'', entityNome:'' };
-  }
-
-  // Carregar entidades para o dropdown de vínculo (Task 5)
-  const [reps, supervisores, assessores] = await Promise.all([
-    dbAll('representantes'), dbAll('supervisores'), dbAll('assessores')
-  ]);
-
-  function buildEntityOptions(type) {
-    if (type === 'representante') return reps.map(r=>`<option value="${r.id}" data-nome="${r.nome}" ${String(r.id)===String(user.entityId)?'selected':''}>${r.nome}</option>`).join('');
-    if (type === 'supervisor')    return supervisores.map(s=>`<option value="${s.id}" data-nome="${s.nome}" ${String(s.id)===String(user.entityId)?'selected':''}>${s.nome}</option>`).join('');
-    if (type === 'assessor')      return assessores.map(a=>`<option value="${a.id}" data-nome="${a.nome}" ${String(a.id)===String(user.entityId)?'selected':''}>${a.nome}</option>`).join('');
-    return '';
-  }
-
-  const overlay = openModal(`
-    <div class="modal-header">
-      <div class="modal-title">${isNew?'Novo Usuário':'Editar Usuário'}</div>
-      <button class="modal-close" onclick="closeModal()">×</button>
-    </div>
-    <div class="modal-body">
-      <div class="two-col">
-        <div class="field-group">
-          <div class="field-label">Login *</div>
-          <input type="text" id="u-login" value="${user.login}" ${!isNew?'readonly style="opacity:.6"':''} placeholder="login único">
-        </div>
-        <div class="field-group">
-          <div class="field-label">Nome completo *</div>
-          <input type="text" id="u-nome" value="${user.nome||''}" placeholder="Nome do usuário">
-        </div>
-      </div>
-      <div class="two-col">
-        <div class="field-group">
-          <div class="field-label">Senha ${!isNew?'(deixe em branco para manter)':' *'}</div>
-          <input type="password" id="u-senha" placeholder="••••••••">
-        </div>
-        <div class="field-group">
-          <div class="field-label">Perfil *</div>
-          <select id="u-perfil">
-            ${perfis.map(p=>`<option value="${p.id}" data-nome="${p.nome}" ${p.id===user.perfilId?'selected':''}>${p.nome}</option>`).join('')}
-          </select>
-        </div>
-      </div>
-      <div class="checkbox-row">
-        <input type="checkbox" id="u-admin" ${user.isAdmin?'checked':''}>
-        <label for="u-admin" style="font-size:13px;cursor:pointer">Administrador (pode criar e editar usuários)</label>
-      </div>
-
-      <!-- ── Task 5: Vínculo de Entidade (RLS) ── -->
-      <div style="margin-top:14px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r)">
-        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">
-          🔗 Vincular a Entidade (Isolamento de Dados)
-        </div>
-        <div class="two-col" style="margin-bottom:8px">
-          <div class="field-group" style="margin:0">
-            <div class="field-label">Tipo de Entidade</div>
-            <select id="u-entity-type">
-              <option value="" ${!user.entityType?'selected':''}>— Sem vínculo (Acesso Global) —</option>
-              <option value="representante" ${user.entityType==='representante'?'selected':''}>Representante</option>
-              <option value="supervisor"    ${user.entityType==='supervisor'?'selected':''}>Supervisor</option>
-              <option value="assessor"      ${user.entityType==='assessor'?'selected':''}>Assessor</option>
-            </select>
-          </div>
-          <div class="field-group" style="margin:0" id="u-entity-wrap" ${!user.entityType?'style="display:none"':''}>
-            <div class="field-label">Entidade Vinculada</div>
-            <select id="u-entity-id">
-              <option value="">— Selecione —</option>
-              ${buildEntityOptions(user.entityType)}
-            </select>
-          </div>
-        </div>
-        <div style="font-size:11px;color:var(--text3)">
-          ⚠ Usuário vinculado verá apenas dados da entidade selecionada em todos os dashboards e listagens.
-          Perfis com <strong>Acesso Total</strong> ignoram este vínculo.
-        </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn secondary" onclick="closeModal()">Cancelar</button>
-      <button class="btn" id="save-user">Salvar</button>
-    </div>
-  `);
-
-  // Atualiza dropdown de entidade ao mudar tipo
-  overlay.querySelector('#u-entity-type').addEventListener('change', function() {
-    const type = this.value;
-    const wrap = overlay.querySelector('#u-entity-wrap');
-    const sel  = overlay.querySelector('#u-entity-id');
-    wrap.style.display = type ? '' : 'none';
-    sel.innerHTML = `<option value="">— Selecione —</option>${buildEntityOptions(type)}`;
-  });
-
-  // ── BUG FIX: Save handler sem recursão e com tratamento de erro explícito ──
-  overlay.querySelector('#save-user').addEventListener('click', async () => {
-    const btn = overlay.querySelector('#save-user');
-    btn.disabled = true;
-    btn.textContent = 'Salvando...';
-
-    try {
-      const loginVal  = overlay.querySelector('#u-login').value.trim().toLowerCase();
-      const nome      = overlay.querySelector('#u-nome').value.trim();
-      const senha     = overlay.querySelector('#u-senha').value;
-      const sel       = overlay.querySelector('#u-perfil');
-      const perfilId  = sel.value;
-      const perfilNome = sel.options[sel.selectedIndex]?.dataset.nome || perfilId;
-      const isAdmin   = overlay.querySelector('#u-admin').checked;
-
-      // Vínculo de entidade
-      const entityType = overlay.querySelector('#u-entity-type').value || null;
-      const entitySel  = overlay.querySelector('#u-entity-id');
-      const entityId   = entityType && entitySel.value ? Number(entitySel.value) : null;
-      const entityNome = entityType && entitySel.value
-        ? (entitySel.options[entitySel.selectedIndex]?.dataset.nome || null)
-        : null;
-
-      if (!loginVal || !nome) { toast('Login e nome são obrigatórios.', 'error'); btn.disabled=false; btn.textContent='Salvar'; return; }
-      if (isNew && !senha)    { toast('Senha obrigatória para novo usuário.', 'error'); btn.disabled=false; btn.textContent='Salvar'; return; }
-
-      const data = {
-        login: loginVal, nome, perfilId, perfilNome, isAdmin,
-        senha: senha || user.senha,
-        entityType, entityId, entityNome,
-      };
-
-      // dbPut é autocontido — não compartilha transação com auditLog
-      await dbPut('usuarios', data);
-      // auditLog numa transação separada e independente
-      try { await auditLog(`${isNew?'Criou':'Editou'} usuário ${loginVal}`, `perfil: ${perfilNome}${entityType?' · vínculo:'+entityType:''}`); } catch(_){}
-
-      toast(isNew?'Usuário criado.':'Usuário atualizado.', 'success');
-      closeModal();
-      refresh();
-    } catch(err) {
-      console.error('openUserModal save error:', err);
-      toast('Erro ao salvar usuário: ' + (err.message||err), 'error');
-      btn.disabled = false;
-      btn.textContent = 'Salvar';
-    }
-  });
-}
-
-
-// Global accordion toggle (called from inline onclick)
+// Proxy para toggleAcc usado via onclick no HTML de divergências
 window.toggleAcc = function(key) {
-  // Find and call the local toggleAcc inside the current divergencias page scope
   if (window._divToggleAcc) window._divToggleAcc(key);
 };
 
-
-// ===================== BOOT — FASE 1 =====================
-// Os módulos core/*.js são carregados com defer e populam window.*
-// antes deste DOMContentLoaded. O script inline usa as funções globais.
+// ── BOOT ──────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('main').style.display    = 'none';
   document.getElementById('sidebar').style.display = 'none';
@@ -794,6 +600,7 @@ document.addEventListener('DOMContentLoaded', function () {
     } else {
       console.warn('window.initDefaultAdmin não está definido. Verifique core/auth.js.');
     }
+    // Seed de perfis — usa PERFIS_DEFAULT e buildDefaultPerms de core/acl.js
     const perfis = await dbAll('perfis_acesso');
     if (perfis.length === 0) {
       for (const p of PERFIS_DEFAULT) {

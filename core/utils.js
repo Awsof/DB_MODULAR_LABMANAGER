@@ -37,39 +37,28 @@
   }
 
   // ── Modal ─────────────────────────────────────────────────────────────────
-  // Implementação fallback — db-modal.js sobrescreve window.openModal/closeModal.
-  // Esta versão só seria chamada se db-modal.js não estiver no DOM.
+  // FASE 5: fallback manual de createElement removido.
+  // Estas funções agora delegam EXCLUSIVAMENTE para o Web Component <db-modal>.
+  // O componente está sempre presente no DOM antes de qualquer chamada de página
+  // (carregado em components/db-modal.js, que sobrescreve estas definições).
+  // Mantidas aqui como proxies globais para compatibilidade com qualquer módulo
+  // que chame openModal/closeModal antes do db-modal.js sobrescrever.
   function openModal(html, onClose) {
     var modalComp = document.getElementById('modal');
     if (modalComp && typeof modalComp.open === 'function') {
       modalComp.open(html, onClose);
-      return modalComp._lightContainer || modalComp;
+      return modalComp;
     }
-    // Fallback legado (sem db-modal.js no DOM)
-    var overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,55,97,.48);' +
-      'z-index:200;display:flex;align-items:center;justify-content:center;padding:24px';
-    var win = document.createElement('div');
-    win.style.cssText = 'background:#fff;border-radius:10px;width:100%;max-width:680px;' +
-      'max-height:88vh;overflow-y:auto;box-shadow:0 24px 60px rgba(0,55,97,.22)';
-    win.innerHTML = html;
-    overlay.appendChild(win);
-    overlay.addEventListener('click', function (e) {
-      if (e.target === overlay) { overlay.remove(); if (onClose) onClose(); }
-    });
-    document.body.appendChild(overlay);
-    return overlay;
+    // Se o componente ainda não estiver pronto (edge case de timing),
+    // logar aviso em vez de criar DOM fantasma.
+    console.warn('openModal: <db-modal id="modal"> não encontrado. Verifique a ordem de carregamento.');
   }
 
   function closeModal() {
     var modalComp = document.getElementById('modal');
     if (modalComp && typeof modalComp.close === 'function') {
       modalComp.close();
-      return;
     }
-    var el = document.querySelector('.modal-overlay');
-    if (el) el.remove();
   }
 
   // ── makeSortable ──────────────────────────────────────────────────────────

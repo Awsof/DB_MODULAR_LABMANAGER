@@ -48,7 +48,6 @@
 
       const renderRow = ch => {
         const lab       = clienteById[ch.fk_cliente];
-        // [AJUSTE] Nome limpo, pois o código agora tem coluna própria
         const labNome   = lab ? (lab.NomeFantasia || lab.RazaoSocial) : 'Não identificado';
         const sys       = sysById[ch.fk_sistema];
         const status    = resolveStatusChamado(ch);
@@ -57,7 +56,7 @@
         
         return `<tr>
           <td style="font-family:var(--mono);font-size:11px;color:var(--text3);white-space:nowrap">${ch.numeroChamado || '—'}</td>
-          <td style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600">#${ch.fk_cliente}</td>
+          <td style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600">${ch.fk_cliente}</td>
           <td>
             <div style="font-weight:600;color:var(--navy);font-size:13px">${labNome}</div>
             ${lab?.CNPJ ? `<div style="font-size:10px;color:var(--text3)">${lab.CNPJ}</div>` : ''}

@@ -1,14 +1,18 @@
 /**
  * core/db.js — Camada de acesso ao IndexedDB
  *
- * PADRÃO: Script clássico carregado via <script src="core/db.js" defer>.
- * Registra todas as funções em window.* para acesso global pelo <script>
- * inline do index.html (páginas).
+ * FASE 6: DB_VERSION 9 → 10
+ *   - Nova store: gerentes (id autoIncrement, nome, regiao, telefone, email)
+ *   - Novo campo texto: supervisores.gerente (string — espelha padrão supervisor→representantes)
+ *   - Novo campo FK:    representantes.fk_supervisor (number|null — para RLS hierárquico)
+ *   Nota: representantes.fk_supervisor NÃO tem índice IDB — o filtro é feito em memória
+ *   via allowedRepIds pré-calculado no doLogin (decisão 5B). Índice seria custo
+ *   sem benefício neste modelo de acesso bulk.
  *
- * NÃO usa import/export (ES Modules), pois o <script type="module"> cria
- * escopo isolado — window.X atribuído dentro de um módulo ES não fica
- * disponível para um <script> clássico que já começou a ser interpretado
- * antes do módulo ser resolvido e executado (Fase 1, bug V26).
+ * PADRÃO: Script clássico carregado via <script src="core/db.js" defer>.
+ * Registra todas as funções em window.* para acesso global.
+ *
+ * NÃO usa import/export — ver decisão de arquitetura §8 no MD do projeto.
  *
  * Referências:
  *  - IndexedDB spec: https://www.w3.org/TR/IndexedDB/
@@ -18,7 +22,7 @@
   'use strict';
 
   const DB_NAME    = 'dblabmanager';
-  const DB_VERSION = 9;
+  const DB_VERSION = 10;          // ← Fase 6: 9→10
 
   let _db        = null;   // IDBDatabase instance
   let _auditHook = null;   // injetado por auth.js via setAuditHook()
@@ -32,7 +36,7 @@
         const d  = e.target.result;
         const tx = e.target.transaction;
 
-        // clientes
+        // ── clientes ────────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('clientes')) {
           const s = d.createObjectStore('clientes', { keyPath: 'Codigo' });
           s.createIndex('UF',                'UF');
@@ -47,70 +51,98 @@
           if (!s.indexNames.contains('categoria_especial'))
             s.createIndex('categoria_especial', 'categoria_especial');
         }
-        // representantes
+
+        // ── representantes ──────────────────────────────────────────────────
+        // fk_supervisor é campo simples (number|null) — sem índice IDB.
+        // O filtro RLS usa allowedRepIds em memória (decisão 5B / doLogin).
         if (!d.objectStoreNames.contains('representantes')) {
           const s = d.createObjectStore('representantes', { keyPath: 'id', autoIncrement: true });
           s.createIndex('nome', 'nome', { unique: true });
         }
-        // assessores
+        // Nota: nenhuma migração one-time necessária para fk_supervisor.
+        // Dados estão em homologação; importação completa será refeita em produção (decisão 3B).
+
+        // ── assessores ──────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('assessores')) {
           const s = d.createObjectStore('assessores', { keyPath: 'id', autoIncrement: true });
           s.createIndex('nome', 'nome', { unique: true });
         }
-        // supervisores
+
+        // ── supervisores ────────────────────────────────────────────────────
+        // Campo texto `gerente` adicionado (string — espelha padrão supervisor→reps, decisão 2B).
+        // Não requer índice IDB: o filtro RLS do gerente resolve via getScopeForGerente() em memória.
         if (!d.objectStoreNames.contains('supervisores')) {
           const s = d.createObjectStore('supervisores', { keyPath: 'id', autoIncrement: true });
           s.createIndex('nome', 'nome', { unique: true });
         }
-        // analistas
+        // Registros existentes não têm `gerente`; serão gravados sem o campo até edição manual.
+
+        // ── gerentes ────────────────────────────────────────────────────────
+        // NOVO — Fase 6. Schema: { id (autoIncrement), nome, regiao, telefone, email }
+        if (!d.objectStoreNames.contains('gerentes')) {
+          const s = d.createObjectStore('gerentes', { keyPath: 'id', autoIncrement: true });
+          s.createIndex('nome', 'nome', { unique: true });
+        }
+
+        // ── analistas ───────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('analistas')) {
           const s = d.createObjectStore('analistas', { keyPath: 'id', autoIncrement: true });
           s.createIndex('nome', 'nome', { unique: true });
         }
-        // sistemas
+
+        // ── sistemas ────────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('sistemas'))
           d.createObjectStore('sistemas', { keyPath: 'id', autoIncrement: true });
-        // logs
+
+        // ── logs ────────────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('logs'))
           d.createObjectStore('logs', { keyPath: 'id', autoIncrement: true });
-        // chamados
+
+        // ── chamados ────────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('chamados')) {
           const s = d.createObjectStore('chamados', { keyPath: 'id', autoIncrement: true });
           s.createIndex('fk_cliente',      'fk_cliente');
           s.createIndex('analista',        'analista');
           s.createIndex('dataSolicitacao', 'dataSolicitacao');
         }
-        // envios
+
+        // ── envios ──────────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('envios')) {
           const s = d.createObjectStore('envios', { keyPath: 'id', autoIncrement: true });
           s.createIndex('fk_cliente', 'fk_cliente');
           s.createIndex('tipoEnvio',  'tipoEnvio');
           s.createIndex('periodo',    'periodo');
         }
-        // propostas
+
+        // ── propostas ───────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('propostas')) {
           const s = d.createObjectStore('propostas', { keyPath: 'id', autoIncrement: true });
           s.createIndex('fk_cliente', 'fk_cliente');
           s.createIndex('status',     'status');
         }
-        // pacotes
+
+        // ── pacotes ─────────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('pacotes')) {
           const s = d.createObjectStore('pacotes', { keyPath: 'id', autoIncrement: true });
           s.createIndex('nome', 'nome');
         }
-        // pacote_registros
+
+        // ── pacote_registros ────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('pacote_registros')) {
           const s = d.createObjectStore('pacote_registros', { keyPath: 'id', autoIncrement: true });
           s.createIndex('fk_pacote',  'fk_pacote');
           s.createIndex('fk_cliente', 'fk_cliente');
         }
-        // budget
+
+        // ── budget ──────────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('budget'))
           d.createObjectStore('budget', { keyPath: 'ano' });
-        // perfis_acesso
+
+        // ── perfis_acesso ───────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('perfis_acesso'))
           d.createObjectStore('perfis_acesso', { keyPath: 'id' });
-        // usuarios
+
+        // ── usuarios ────────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('usuarios')) {
           const s = d.createObjectStore('usuarios', { keyPath: 'login' });
           s.createIndex('perfilId',   'perfilId');
@@ -120,7 +152,8 @@
           if (!s.indexNames.contains('entityType'))
             s.createIndex('entityType', 'entityType');
         }
-        // audit_log
+
+        // ── audit_log ───────────────────────────────────────────────────────
         if (!d.objectStoreNames.contains('audit_log')) {
           const s = d.createObjectStore('audit_log', { keyPath: 'id', autoIncrement: true });
           s.createIndex('ts',      'ts');

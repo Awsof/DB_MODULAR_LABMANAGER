@@ -1,7 +1,4 @@
 // pages/chamados.js — NOVO · Fase 6
-// Página gerencial standalone de chamados de integração.
-// Centraliza criação, visualização e edição de chamados, desacoplada do modal de laboratório.
-// RLS: filtra chamados pelos clientes visíveis ao usuário via applyDataFilter.
 (function (global) {
   "use strict";
 
@@ -20,14 +17,12 @@
         dbAll('analistas'), dbAll('chamados')
       ]);
 
-      // RLS
       const clientesVisiveis = applyDataFilter(_clientes, reps);
       const codigosVisiveis  = new Set(clientesVisiveis.map(c => c.Codigo));
 
       const clienteById = {}; for (const c of clientesVisiveis) clienteById[c.Codigo] = c;
       const sysById     = {}; for (const s of sistemas)          sysById[s.id]         = s;
 
-      // Filtra chamados pelos clientes visíveis + filtros aplicados
       let chamados = allChamados.filter(ch => codigosVisiveis.has(ch.fk_cliente));
 
       if (search) {
@@ -44,7 +39,6 @@
       if (filterAnalista) chamados = chamados.filter(ch => ch.analista === filterAnalista);
       if (filterSistema)  chamados = chamados.filter(ch => String(ch.fk_sistema) === filterSistema);
 
-      // Ordena por dataSolicitacao desc (mais recente primeiro)
       chamados.sort((a, b) => (b.dataSolicitacao || '').localeCompare(a.dataSolicitacao || ''));
 
       const analistaSet = [...new Set(allChamados.map(ch => ch.analista).filter(Boolean))].sort();
@@ -54,13 +48,16 @@
 
       const renderRow = ch => {
         const lab       = clienteById[ch.fk_cliente];
-        const labNome   = lab ? (lab.NomeFantasia || lab.RazaoSocial || '#' + lab.Codigo) : `Lab #${ch.fk_cliente}`;
+        // [AJUSTE] Nome limpo, pois o código agora tem coluna própria
+        const labNome   = lab ? (lab.NomeFantasia || lab.RazaoSocial) : 'Não identificado';
         const sys       = sysById[ch.fk_sistema];
         const status    = resolveStatusChamado(ch);
         const statusBadge = renderChamadoStatusBadge(status);
         const canEdit   = canBtn('chamados', 'edit-btn');
+        
         return `<tr>
           <td style="font-family:var(--mono);font-size:11px;color:var(--text3);white-space:nowrap">${ch.numeroChamado || '—'}</td>
+          <td style="font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:600">#${ch.fk_cliente}</td>
           <td>
             <div style="font-weight:600;color:var(--navy);font-size:13px">${labNome}</div>
             ${lab?.CNPJ ? `<div style="font-size:10px;color:var(--text3)">${lab.CNPJ}</div>` : ''}
@@ -80,19 +77,16 @@
       };
 
       tbody.innerHTML = chamados.length === 0
-        ? `<tr><td colspan="8" style="text-align:center;padding:40px;color:var(--text3)">Nenhum chamado encontrado.</td></tr>`
+        ? `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text3)">Nenhum chamado encontrado.</td></tr>`
         : chamados.map(renderRow).join('');
 
-      // Atualiza contador no topbar
       const infoEl = document.getElementById('ch-count');
       if (infoEl) infoEl.textContent = `${chamados.length} chamado${chamados.length !== 1 ? 's' : ''}`;
 
-      // Bind editar
       tbody.querySelectorAll('[data-edit-ch]').forEach(btn => {
         btn.addEventListener('click', () => openChamadoModal(parseInt(btn.dataset.editCh), clientesVisiveis, sistemas, analistas, () => render(currentFilters)));
       });
 
-      // Bind excluir
       tbody.querySelectorAll('[data-del-ch]').forEach(btn => {
         btn.addEventListener('click', async () => {
           if (!confirm('Excluir este chamado?')) return;
@@ -103,7 +97,6 @@
         });
       });
 
-      // Atualiza dropdowns de filtro (sem perder seleção)
       const anaEl = document.getElementById('ch-filter-analista');
       if (anaEl) {
         const prev = anaEl.value;
@@ -118,7 +111,6 @@
       }
     };
 
-    // Estado de filtros atual (closure para callbacks de botões)
     let currentFilters = {};
 
     document.getElementById('content').innerHTML = `
@@ -143,6 +135,7 @@
           <thead>
             <tr>
               <th style="width:120px">Nº Chamado</th>
+              <th style="width:80px">Cód.</th>
               <th>Laboratório</th>
               <th>Sistema</th>
               <th>Analista</th>
@@ -157,10 +150,8 @@
       </div>
     `;
 
-    // Renderização inicial
     await render(currentFilters);
 
-    // Bind filtros
     const getFilters = () => ({
       search:         document.getElementById('ch-search')?.value           || '',
       filterStatus:   document.getElementById('ch-filter-status')?.value    || '',
@@ -168,13 +159,11 @@
       filterSistema:  document.getElementById('ch-filter-sistema')?.value   || '',
     });
 
-    ['input', 'change'].forEach(() => {}); // noop; listeners abaixo
     document.getElementById('ch-search').addEventListener('input',           () => { currentFilters = getFilters(); render(currentFilters); });
     document.getElementById('ch-filter-status').addEventListener('change',   () => { currentFilters = getFilters(); render(currentFilters); });
     document.getElementById('ch-filter-analista').addEventListener('change', () => { currentFilters = getFilters(); render(currentFilters); });
     document.getElementById('ch-filter-sistema').addEventListener('change',  () => { currentFilters = getFilters(); render(currentFilters); });
 
-    // Botão Novo Chamado
     document.getElementById('new-ch-btn').addEventListener('click', async () => {
       const [clientes, reps, sistemas, analistas] = await Promise.all([
         dbAll('clientes'), dbAll('representantes'), dbAll('sistemas'), dbAll('analistas')
@@ -184,7 +173,6 @@
     });
   };
 
-  // ── Helpers de status ─────────────────────────────────────────────────────────
   function resolveStatusChamado(ch) {
     if (!ch.dataFinalizacao) return 'aberto';
     return ch.integracaoAtiva ? 'finalizado_ativo' : 'finalizado_inativo';
@@ -196,7 +184,6 @@
     return `<span class="chamado-status-impl" style="font-size:11px">⏳ Em Implantação</span>`;
   }
 
-  // ── openChamadoModal ──────────────────────────────────────────────────────────
   async function openChamadoModal(id, clientesVisiveis, sistemas, analistas, onSave) {
     const ch     = id ? await dbGet('chamados', id) : null;
     const isNew  = !ch;
@@ -208,7 +195,6 @@
 
     const analistasAtivos = analistas.filter(a => a.ativo !== false);
 
-    // [MODIFICADO] Lógica do Datalist - Removemos o <option selected> e o text extra para manter limpo
     const clientesOpts = [...clientesVisiveis]
       .sort((a, b) => (a.NomeFantasia || a.RazaoSocial || '').localeCompare(b.NomeFantasia || b.RazaoSocial || '', 'pt-BR'))
       .map(c => {
@@ -284,9 +270,6 @@
           <input type="checkbox" id="ch-m-int-ativa" ${data.integracaoAtiva ? 'checked' : ''}>
           <label for="ch-m-int-ativa" style="font-size:13px;cursor:pointer">Integração Ativa</label>
         </div>
-        <div style="margin-top:10px;padding:9px 12px;background:rgba(15,155,148,.06);border:1px solid rgba(15,155,148,.2);border-radius:var(--r);font-size:11px;color:var(--text3)">
-          ℹ️ Ao marcar "Integração Ativa", o sistema será vinculado automaticamente ao laboratório.
-        </div>
       </div>
       <div class="modal-footer">
         <button class="btn secondary" onclick="closeModal()">Cancelar</button>
@@ -294,7 +277,6 @@
       </div>
     `);
 
-    // [MODIFICADO] Feedback visual para Novos Registros
     if (isNew) {
       const labInput = overlay.querySelector('#ch-m-lab-input');
       const labNameDisplay = overlay.querySelector('#lab-selected-name');
@@ -315,7 +297,6 @@
       const btn = overlay.querySelector('#save-ch-m');
       btn.disabled = true; btn.textContent = 'Salvando...';
       try {
-        // [MODIFICADO] Captação do ID agora é feita do novo Input
         const fk_cliente    = isNew ? overlay.querySelector('#ch-m-lab-input').value.trim() : data.fk_cliente;
         const numeroChamado = overlay.querySelector('#ch-m-num').value.trim();
         const analista      = overlay.querySelector('#ch-m-analista').value.trim();
@@ -328,7 +309,6 @@
         if (!fk_cliente)    { toast('Selecione o laboratório.', 'error'); btn.disabled = false; btn.textContent = 'Salvar'; return; }
         if (!numeroChamado) { toast('Informe o número do chamado.', 'error'); btn.disabled = false; btn.textContent = 'Salvar'; return; }
         if (!dataSol)       { toast('Informe a data de solicitação.', 'error'); btn.disabled = false; btn.textContent = 'Salvar'; return; }
-        if (integracaoAtiva && !tipoIntegracao) { toast('Selecione o Tipo de Integração.', 'error'); btn.disabled = false; btn.textContent = 'Salvar'; return; }
 
         const record = {
           fk_cliente,
@@ -344,7 +324,6 @@
 
         await (isNew ? dbAdd : dbPut)('chamados', record);
 
-        // Atualiza fk_sistema no cliente se integração ativa
         if (integracaoAtiva && fk_sistema) {
           const freshCliente = await dbGet('clientes', fk_cliente);
           if (freshCliente) await dbPut('clientes', { ...freshCliente, fk_sistema, _manual_fk_sistema: true });

@@ -29,7 +29,9 @@
         const q = search.toLowerCase();
         chamados = chamados.filter(ch => {
           const lab = clienteById[ch.fk_cliente];
+          // [AJUSTE] Adicionada a busca por ch.fk_cliente (Código)
           return (ch.numeroChamado || '').toLowerCase().includes(q)
+            || String(ch.fk_cliente).includes(q) 
             || (lab?.NomeFantasia || '').toLowerCase().includes(q)
             || (lab?.RazaoSocial  || '').toLowerCase().includes(q)
             || (ch.analista || '').toLowerCase().includes(q);
@@ -117,7 +119,7 @@
       <div class="toolbar" style="flex-wrap:wrap;gap:8px">
         <div class="search-wrap" style="flex:2;min-width:200px">
           <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
-          <input type="text" placeholder="Buscar por nº chamado, laboratório ou analista..." id="ch-search">
+          <input type="text" placeholder="Buscar por número, código, laboratório ou analista..." id="ch-search">
         </div>
         <select id="ch-filter-status">
           <option value="">Todos os status</option>

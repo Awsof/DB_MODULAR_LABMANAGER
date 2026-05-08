@@ -1,4 +1,4 @@
-// pages/divergencias.js — extraído da fase 4
+// pages/divergencias.js — Corrigido para atualização dinâmica de período
 (function (global) {
   'use strict';
   var pages = global.pages || {};
@@ -12,6 +12,7 @@
       dbAll('clientes'), dbAll('representantes'), dbAll('sistemas'),
       dbAll('chamados'), dbAll('envios')
     ]);
+    
     // ── RLS: filtrar clientes pelo vínculo do usuário ──
     const clientes = applyDataFilter(_clientesDiv, reps);
 
@@ -29,14 +30,12 @@
     const repById = {}; for (const r of reps) repById[r.id] = r;
     const sysById = {}; for (const s of sistemas) sysById[s.id] = s;
 
-    // Per client: group chamados
     const chamadosByCliente = {};
     for (const ch of chamados) {
       if (!chamadosByCliente[ch.fk_cliente]) chamadosByCliente[ch.fk_cliente] = [];
       chamadosByCliente[ch.fk_cliente].push(ch);
     }
 
-    // Per client: group envios — unique tipoEnvio set + total qty
     const enviosByCliente = {};
     for (const ev of envios) {
       if (!enviosByCliente[ev.fk_cliente]) enviosByCliente[ev.fk_cliente] = { tipos: new Set(), total: 0, nomeCliente: ev.nomeCliente };
@@ -44,17 +43,13 @@
       enviosByCliente[ev.fk_cliente].total += ev.qntEnvio;
     }
 
-    // Get period label
-    const periodo = envios[0]?.periodo?.replace('~',' → ') || '';
-
-    // Período available clientes codes (from envio base)
     const envioClienteCodes = new Set(Object.keys(enviosByCliente));
 
     // Build divergence lists
-    const div1 = []; // Integração ativa + não enviando
-    const div2 = []; // Sem integração ativa + enviando por integração
-    const div3 = []; // Tipo de envio diverge do tipo de chamado ativo
-    const div4 = []; // Mensalidade ativa + não enviando
+    const div1 = []; 
+    const div2 = []; 
+    const div3 = []; 
+    const div4 = []; 
 
     for (const c of clientes) {
       const cod = String(c.Codigo);
@@ -70,13 +65,8 @@
 
       const row = { c, chs, tiposEnvio, rep, sys, tipoIntExpected, envInfo };
 
-      // DIV 1: tem integração ativa + não está enviando nada no período
       if (temIntAtiva && !enviandoQualquer) div1.push(row);
-
-      // DIV 2: sem integração ativa + está enviando por tipo de integração
       if (!temIntAtiva && enviandoInt) div2.push(row);
-
-      // DIV 3: tipo de envio diverge do tipo de chamado ativo
       if (temIntAtiva && enviandoQualquer) {
         const tiposIntEnvio = tiposEnvio.filter(t => ENVIO_CONV.has(t) || ENVIO_WS.has(t));
         if (tiposIntEnvio.length > 0) {
@@ -86,16 +76,12 @@
           if (diverge) div3.push(row);
         }
       }
-
-      // DIV 4: mensalidade ativa no sistema + não enviando
-      if (sys && (Array.isArray(sys.id ? [sys] : []) || true)) {
-        // Check sistema mensalidade
+      if (sys) {
         const sysObj = sysById[c.fk_sistema];
         if (sysObj?.mensalidadeHabilitada && !enviandoQualquer) div4.push(row);
       }
     }
 
-    // Collect all analistas from chamados for filter
     const analistaSet = [...new Set(chamados.map(ch=>ch.analista).filter(Boolean))].sort();
     const ufSet       = [...new Set(clientes.map(c=>c.UF).filter(Boolean))].sort();
     const tiposEnvioSet = [...new Set(envios.map(e=>e.tipoEnvio).filter(Boolean))].sort();
@@ -104,7 +90,7 @@
     let divFilters = { codigo:'', nome:'', rep:'', analista:'', sistema:'', uf:'', tipoEnvio:'', tipoChamado:'' };
 
     function matchRow(row) {
-      const { c, chs, tiposEnvio, rep, sys } = row;
+      const { c, chs, tiposEnvio } = row;
       const f = divFilters;
       if (f.codigo   && !String(c.Codigo).includes(f.codigo)) return false;
       if (f.nome     && !(c.NomeFantasia||c.RazaoSocial||'').toLowerCase().includes(f.nome.toLowerCase())) return false;
@@ -120,29 +106,12 @@
       return true;
     }
 
-    function renderEnvioChips(tipos) {
-      return tipos.map(t => {
-        let cls = 'div-badge noint';
-        if (ENVIO_CONV.has(t)) cls = 'div-badge conv';
-        else if (ENVIO_WS.has(t)) cls = 'div-badge ws';
-        return `<span class="${cls}">${t}</span>`;
-      }).join(' ');
-    }
-
-    function renderIntBadge(tipo) {
-      if (tipo === 'CONVENCIONAL') return `<span class="div-badge conv">Convencional</span>`;
-      if (tipo === 'WEBSERVICE')   return `<span class="div-badge ws">Webservice</span>`;
-      return `<span class="div-badge noint">Sem Integração</span>`;
-    }
-
-    // All unique envio types across current dataset
     const ALL_ENVIO_TYPES = [...new Set(envios.map(e=>e.tipoEnvio))].sort();
 
     function renderRows(list) {
       const filtered = list.filter(matchRow);
-      if (!filtered.length) return `<tr><td colspan="100" style="text-align:center;padding:20px;color:var(--text3)">Nenhuma divergência nesta categoria com os filtros aplicados.</td></tr>`;
+      if (!filtered.length) return `<tr><td colspan="100" style="text-align:center;padding:20px;color:var(--text3)">Nenhuma divergência encontrada nesta categoria.</td></tr>`;
       return filtered.map(({ c, chs, tiposEnvio, rep, sys, tipoIntExpected, envInfo }) => {
-        // per-tipo qty map
         const qtyByTipo = {};
         if (envInfo) {
           const evs = envios.filter(ev => ev.fk_cliente === String(c.Codigo));
@@ -158,31 +127,28 @@
           <td><span class="badge uf">${c.UF||'?'}</span></td>
           <td style="font-size:12px">${rep?.nome||'—'}</td>
           <td style="font-size:12px">${sys?.nome||'—'}</td>
-          <td>${renderIntBadge(tipoIntExpected)}</td>
+          <td>${tipoIntExpected === 'WEBSERVICE' ? '<span class="div-badge ws">Webservice</span>' : tipoIntExpected === 'CONVENCIONAL' ? '<span class="div-badge conv">Convencional</span>' : '<span class="div-badge noint">Sem Int.</span>'}</td>
           ${tipoCols}
         </tr>`;
       }).join('');
     }
 
     const TYPE_HEADERS = ALL_ENVIO_TYPES.map(t=>`<th style="text-align:right;white-space:nowrap;min-width:90px">${t}</th>`).join('');
-    const COL_HEADERS = `
-      <th>Código</th><th>Nome</th><th>UF</th><th>Representante</th>
-      <th>Sistema</th><th>Int. Chamado</th>${TYPE_HEADERS}`;
+    const COL_HEADERS = `<th>Código</th><th>Nome</th><th>UF</th><th>Representante</th><th>Sistema</th><th>Int. Chamado</th>${TYPE_HEADERS}`;
 
     let accState = { d1:false, d2:false, d3:false, d4:false };
 
-    function toggleAcc(key) {
+    window._divToggleAcc = (key) => {
       accState[key] = !accState[key];
       renderPage();
-    }
-    window._divToggleAcc = toggleAcc;
+    };
 
     function accSection(key, colorClass, icon, label, list) {
       const count = list.filter(matchRow).length;
       const isOpen = accState[key];
       return `
         <div class="accordion-section">
-          <div class="accordion-header div-section-title ${colorClass} ${isOpen?'':'collapsed'}" onclick="toggleAcc('${key}')">
+          <div class="accordion-header div-section-title ${colorClass} ${isOpen?'':'collapsed'}" onclick="window._divToggleAcc('${key}')">
             <span class="acc-title">${icon} ${label} (${count})</span>
             <span class="accordion-chevron">›</span>
           </div>
@@ -197,88 +163,38 @@
         </div>`;
     }
 
+    // [CORREÇÃO] A função renderPage agora reconstrói todo o cabeçalho dinamicamente
     function renderPage() {
-      document.getElementById('div-content').innerHTML =
-        accSection('d1','red',   '⚠', 'Integração Ativa sem Envio no Período', div1) +
-        accSection('d2','amber', '⚠', 'Sem Integração Ativa enviando por Integração', div2) +
-        accSection('d3','purple','⚠', 'Divergência entre Tipo de Chamado e Tipo de Envio', div3) +
-        accSection('d4','teal',  '⚠', 'Mensalidade Ativa sem Envio no Período', div4);
-    }
-
-    document.getElementById('content').innerHTML = `
-      <div style="font-size:12px;color:var(--text3);margin-bottom:16px">
-        Período da base de envio: <strong style="color:var(--text2)">${periodo}</strong>
-        · <span style="color:var(--text3)">${envioClienteCodes.size.toLocaleString('pt-BR')} clientes com envio registrado</span>
-      </div>
-
-      <!-- FILTERS -->
-      <div class="toolbar" style="flex-wrap:wrap;gap:8px;margin-bottom:20px">
-        <div class="search-wrap no-icon" style="flex:1;min-width:90px">
-          <input type="text" id="df-codigo" placeholder="Código..." value="${divFilters.codigo}">
+      const periodoLabel = envios[0]?.periodo?.replace('~',' → ') || 'Período não identificado';
+      
+      document.getElementById('content').innerHTML = `
+        <div id="div-periodo-info" style="font-size:12px;color:var(--text3);margin-bottom:16px">
+          Período da base de envio: <strong style="color:var(--text2)">${periodoLabel}</strong>
+          · <span style="color:var(--text3)">${envioClienteCodes.size.toLocaleString('pt-BR')} clientes com envio registrado</span>
         </div>
-        <div class="search-wrap" style="flex:2;min-width:160px">
-          <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
-          <input type="text" id="df-nome" placeholder="Nome do cliente..." value="${divFilters.nome}">
+
+        <div class="toolbar" style="flex-wrap:wrap;gap:8px;margin-bottom:20px">
+          <div class="search-wrap no-icon" style="flex:1;min-width:90px">
+            <input type="text" id="df-codigo" placeholder="Código..." value="${divFilters.codigo}">
+          </div>
+          <div class="search-wrap" style="flex:2;min-width:160px">
+            <span class="search-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg></span>
+            <input type="text" id="df-nome" placeholder="Nome do cliente..." value="${divFilters.nome}">
+          </div>
+          <select id="df-uf">${ufSet.map(u=>`<option value="${u}" ${u===divFilters.uf?'selected':''}>${u}</option>`).join('')}</select>
+          <select id="df-rep"><option value="">Todos Reps</option>${reps.map(r=>`<option value="${r.id}" ${String(r.id)===divFilters.rep?'selected':''}>${r.nome}</option>`).join('')}</select>
+          <select id="df-analista"><option value="">Todos Analistas</option>${analistaSet.map(a=>`<option value="${a}" ${a===divFilters.analista?'selected':''}>${a}</option>`).join('')}</select>
+          <button class="btn secondary sm" id="df-clear">Limpar</button>
         </div>
-        <select id="df-uf" style="flex:0 0 auto">
-          <option value="">Todas as UFs</option>
-          ${ufSet.map(u=>`<option value="${u}" ${u===divFilters.uf?'selected':''}>${u}</option>`).join('')}
-        </select>
-        <select id="df-rep" style="flex:0 0 auto">
-          <option value="">Todos os representantes</option>
-          ${[...reps].sort((a,b)=>a.nome.localeCompare(b.nome,'pt-BR')).map(r=>`<option value="${r.id}" ${String(r.id)===divFilters.rep?'selected':''}>${r.nome}</option>`).join('')}
-        </select>
-        <select id="df-sistema" style="flex:0 0 auto">
-          <option value="">Todos os sistemas</option>
-          ${sistemas.map(s=>`<option value="${s.id}" ${String(s.id)===divFilters.sistema?'selected':''}>${s.nome}</option>`).join('')}
-        </select>
-        <select id="df-analista" style="flex:0 0 auto">
-          <option value="">Todos os analistas</option>
-          ${analistaSet.map(a=>`<option value="${a}" ${a===divFilters.analista?'selected':''}>${a}</option>`).join('')}
-        </select>
-        <select id="df-tipo-envio" style="flex:0 0 auto">
-          <option value="">Todos tipos de envio</option>
-          ${tiposEnvioSet.map(t=>`<option value="${t}" ${t===divFilters.tipoEnvio?'selected':''}>${t}</option>`).join('')}
-        </select>
-        <select id="df-tipo-chamado" style="flex:0 0 auto">
-          <option value="">Todos tipos de chamado</option>
-          <option value="Convencional" ${divFilters.tipoChamado==='Convencional'?'selected':''}>Convencional (XML)</option>
-          <option value="Webservice" ${divFilters.tipoChamado==='Webservice'?'selected':''}>Webservice</option>
-        </select>
-        <button class="btn secondary" id="df-clear">Limpar filtros</button>
-      </div>
 
-      <div id="div-content"></div>
-    `;
+        <div id="div-sections-container">
+          ${accSection('d1','red',   '⚠', 'Integração Ativa sem Envio no Período', div1)}
+          ${accSection('d2','amber', '⚠', 'Sem Integração Ativa enviando por Integração', div2)}
+          ${accSection('d3','purple','⚠', 'Divergência entre Tipo de Chamado e Tipo de Envio', div3)}
+          ${accSection('d4','teal',  '⚠', 'Mensalidade Ativa sem Envio no Período', div4)}
+        </div>
+      `;
 
-    renderPage();
-
-    // Wire filters
-    const wire = (id, key) => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.addEventListener(el.tagName === 'SELECT' ? 'change' : 'input', e => {
-        divFilters[key] = e.target.value;
-        renderPage();
-      });
-    };
-    wire('df-codigo',      'codigo');
-    wire('df-nome',        'nome');
-    wire('df-rep',         'rep');
-    wire('df-uf',          'uf');
-    wire('df-sistema',     'sistema');
-    wire('df-analista',    'analista');
-    wire('df-tipo-envio',  'tipoEnvio');
-    wire('df-tipo-chamado','tipoChamado');
-
-    document.getElementById('df-clear').addEventListener('click', () => {
-      divFilters = { codigo:'', nome:'', rep:'', analista:'', sistema:'', uf:'', tipoEnvio:'', tipoChamado:'' };
-      ['df-codigo','df-nome','df-rep','df-uf','df-sistema','df-analista','df-tipo-envio','df-tipo-chamado'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.value = '';
-      });
-      renderPage();
-    });
-  };
-
-})(window);
+      // Re-bind dos filtros após re-renderizar o toolbar
+      document.getElementById('df-codigo').oninput = e => { divFilters.codigo = e.target.value; renderPage(); };
+      document.getElementById('df-nome').oninput = e => { divFilters.nome = e.target.value; render

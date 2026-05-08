@@ -1,8 +1,38 @@
 // pages/importacao.js — extraído da fase 4
+// FASE 5 FIX: switchImportTab movida para escopo do IIFE (fora de pages.importacao)
+// e exportada como window.switchImportTab para que chamadas via onclick="switchImportTab('g5')"
+// no innerHTML injetado possam encontrá-la no escopo global (window).
 (function (global) {
   'use strict';
   var pages = global.pages || {};
   global.pages = pages;
+
+  // ── switchImportTab ────────────────────────────────────────────────────────
+  // DEVE estar no escopo do IIFE (não dentro de pages.importacao) para que
+  // onclick-strings no HTML injetado a encontrem via window.switchImportTab.
+  // currentImportTab é compartilhada entre switchImportTab e handleFile.
+  var currentImportTab = 'g5';
+
+  function switchImportTab(tab) {
+    currentImportTab = tab;
+    document.getElementById('tab-g5').classList.toggle('active', tab === 'g5');
+    document.getElementById('tab-envio').classList.toggle('active', tab === 'envio');
+    document.getElementById('tab-esmeralda').classList.toggle('active', tab === 'esmeralda');
+    var titles = {
+      g5:        'Arraste a planilha aqui',
+      envio:     'Arraste a Base de Envio aqui',
+      esmeralda: 'Arraste a Lista Esmeralda aqui',
+    };
+    var subs = {
+      g5:        'Formatos: .xls, .xlsx, .csv — Base G5',
+      envio:     'Formatos: .csv — Colunas: Data_Inicial; Data_Final; Envio; Qnt Envio; Código; Nome do Cliente',
+      esmeralda: 'Formatos: .xls, .xlsx — Colunas: Código · CATEGORIA · Assessor',
+    };
+    var icons = { g5:'📂', envio:'📊', esmeralda:'💎' };
+    document.getElementById('drop-title').textContent = titles[tab];
+    document.getElementById('drop-sub').textContent   = subs[tab];
+    document.getElementById('drop-icon').textContent  = icons[tab];
+  }
 
 // ===================== PAGE: IMPORTAÇÃO =====================
   pages.importacao = async function() {
@@ -232,28 +262,9 @@
     dropArea.addEventListener('drop', e => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
     document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
 
-    let currentImportTab = 'g5';
-
-    function switchImportTab(tab) {
-      currentImportTab = tab;
-      document.getElementById('tab-g5').classList.toggle('active', tab === 'g5');
-      document.getElementById('tab-envio').classList.toggle('active', tab === 'envio');
-      document.getElementById('tab-esmeralda').classList.toggle('active', tab === 'esmeralda');
-      const titles = {
-        g5:        'Arraste a planilha aqui',
-        envio:     'Arraste a Base de Envio aqui',
-        esmeralda: 'Arraste a Lista Esmeralda aqui',
-      };
-      const subs = {
-        g5:        'Formatos: .xls, .xlsx, .csv — Base G5',
-        envio:     'Formatos: .csv — Colunas: Data_Inicial; Data_Final; Envio; Qnt Envio; Código; Nome do Cliente',
-        esmeralda: 'Formatos: .xls, .xlsx — Colunas: Código · CATEGORIA · Assessor',
-      };
-      const icons = { g5:'📂', envio:'📊', esmeralda:'💎' };
-      document.getElementById('drop-title').textContent = titles[tab];
-      document.getElementById('drop-sub').textContent   = subs[tab];
-      document.getElementById('drop-icon').textContent  = icons[tab];
-    }
+    // currentImportTab e switchImportTab vivem no escopo do IIFE (acima).
+    // Resetar estado ao (re)carregar a página para garantir consistência.
+    currentImportTab = 'g5';
 
     async function handleFile(file) {
       if (!file) return;
@@ -408,5 +419,11 @@
       }
     }
   };
+
+  // ── Export global ──────────────────────────────────────────────────────────
+  // switchImportTab é chamada via onclick="switchImportTab('g5')" no innerHTML
+  // injetado. O browser avalia essas strings no escopo de window — sem este
+  // export, qualquer clique nas abas lançaria ReferenceError silencioso.
+  global.switchImportTab = switchImportTab;
 
 })(window);

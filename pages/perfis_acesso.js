@@ -169,7 +169,7 @@ pages.perfis_acesso = async function() {
         </tbody></table>`;
 
     ul.querySelectorAll('[data-edit-user]').forEach(btn => {
-      btn.addEventListener('click', () => openUserModal(btn.dataset.editUser, perfis, loadUsers));
+      btn.addEventListener('click', () => openUserModal(btn.dataset.editUser, loadUsers));
     });
     ul.querySelectorAll('[data-del-user]').forEach(btn => {
       btn.addEventListener('click', async () => {
@@ -211,7 +211,7 @@ pages.perfis_acesso = async function() {
 
   if(isAdminUser) {
     loadUsers();
-    document.getElementById('new-user-btn')?.addEventListener('click', () => openUserModal(null, perfis, loadUsers));
+    document.getElementById('new-user-btn')?.addEventListener('click', () => openUserModal(null, loadUsers));
   }
   loadAuditLog();
 
@@ -242,5 +242,150 @@ pages.perfis_acesso = async function() {
     renderPage();
   };
 };
+
+// ── openUserModal ────────────────────────────────────────────────────────────
+// FASE 5: Migrada do script inline do index.html.
+// Assinatura simplificada: (login, refresh) — parâmetro `perfis` removido.
+// A função carrega os perfis diretamente da store para garantir sempre dados frescos.
+// Exportada como window.openUserModal — chamada via onclick-string nos botões da
+// tabela de usuários renderizada por innerHTML em pages/perfis_acesso.js.
+// ─────────────────────────────────────────────────────────────────────────────
+async function openUserModal(login, refresh) {
+  const isNew = !login;
+  let user = null;
+  if (!isNew) {
+    try { user = await dbGet('usuarios', login); } catch(e) { user = null; }
+  }
+  if (!user) {
+    user = { login:'', nome:'', senha:'', perfilId:'analistas', perfilNome:'Analistas',
+             isAdmin:false, entityType:'', entityId:'', entityNome:'' };
+  }
+
+  // Carrega perfis e entidades frescos da store
+  const [todosPervis, reps, supervisores, gerentes, assessores] = await Promise.all([
+    dbAll('perfis_acesso'),
+    dbAll('representantes'),
+    dbAll('supervisores'),
+    dbAll('gerentes'),
+    dbAll('assessores'),
+  ]);
+
+  function buildEntityOptions(type) {
+    if (type === 'representante') return reps.map(r=>`<option value="${r.id}" data-nome="${r.nome}" ${String(r.id)===String(user.entityId)?'selected':''}>${r.nome}</option>`).join('');
+    if (type === 'supervisor')    return supervisores.map(s=>`<option value="${s.id}" data-nome="${s.nome}" ${String(s.id)===String(user.entityId)?'selected':''}>${s.nome}</option>`).join('');
+    if (type === 'gerente')       return gerentes.map(g=>`<option value="${g.id}" data-nome="${g.nome}" ${String(g.id)===String(user.entityId)?'selected':''}>${g.nome}</option>`).join('');
+    if (type === 'assessor')      return assessores.map(a=>`<option value="${a.id}" data-nome="${a.nome}" ${String(a.id)===String(user.entityId)?'selected':''}>${a.nome}</option>`).join('');
+    return '';
+  }
+
+  const overlay = openModal(`
+    <div class="modal-header">
+      <div class="modal-title">${isNew?'Novo Usuário':'Editar Usuário'}</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="two-col">
+        <div class="field-group">
+          <div class="field-label">Login *</div>
+          <input type="text" id="u-login" value="${user.login}" ${!isNew?'readonly style="opacity:.6"':''} placeholder="login único">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Nome completo *</div>
+          <input type="text" id="u-nome" value="${user.nome||''}" placeholder="Nome do usuário">
+        </div>
+      </div>
+      <div class="two-col">
+        <div class="field-group">
+          <div class="field-label">Senha ${!isNew?'(deixe em branco para manter)':' *'}</div>
+          <input type="password" id="u-senha" placeholder="••••••••">
+        </div>
+        <div class="field-group">
+          <div class="field-label">Perfil *</div>
+          <select id="u-perfil">
+            ${todosPervis.map(p=>`<option value="${p.id}" data-nome="${p.nome}" ${p.id===user.perfilId?'selected':''}>${p.nome}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="u-admin" ${user.isAdmin?'checked':''}>
+        <label for="u-admin" style="font-size:13px;cursor:pointer">Administrador (pode criar e editar usuários)</label>
+      </div>
+      <div style="margin-top:14px;padding:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r)">
+        <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);margin-bottom:10px">
+          🔗 Vincular a Entidade (Isolamento de Dados)
+        </div>
+        <div class="two-col" style="margin-bottom:8px">
+          <div class="field-group" style="margin:0">
+            <div class="field-label">Tipo de Entidade</div>
+            <select id="u-entity-type">
+              <option value="" ${!user.entityType?'selected':''}>— Sem vínculo (Acesso Global) —</option>
+              <option value="gerente"       ${user.entityType==='gerente'?'selected':''}>Gerente</option>
+              <option value="supervisor"    ${user.entityType==='supervisor'?'selected':''}>Supervisor Comercial</option>
+              <option value="representante" ${user.entityType==='representante'?'selected':''}>Representante</option>
+              <option value="assessor"      ${user.entityType==='assessor'?'selected':''}>Assessor</option>
+            </select>
+          </div>
+          <div class="field-group" style="margin:0" id="u-entity-wrap" ${!user.entityType?'style="display:none"':''}>
+            <div class="field-label">Entidade Vinculada</div>
+            <select id="u-entity-id">
+              <option value="">— Selecione —</option>
+              ${buildEntityOptions(user.entityType)}
+            </select>
+          </div>
+        </div>
+        <div style="font-size:11px;color:var(--text3)">
+          ⚠ Usuário vinculado verá apenas dados da entidade selecionada em todos os dashboards e listagens.
+          Hierarquia: Gerente &gt; Supervisor &gt; Representante. Perfis com <strong>Acesso Total</strong> ignoram este vínculo.
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn secondary" onclick="closeModal()">Cancelar</button>
+      <button class="btn" id="save-user">Salvar</button>
+    </div>
+  `);
+
+  overlay.querySelector('#u-entity-type').addEventListener('change', function() {
+    const type = this.value;
+    const wrap = overlay.querySelector('#u-entity-wrap');
+    const sel  = overlay.querySelector('#u-entity-id');
+    wrap.style.display = type ? '' : 'none';
+    sel.innerHTML = `<option value="">— Selecione —</option>${buildEntityOptions(type)}`;
+  });
+
+  overlay.querySelector('#save-user').addEventListener('click', async () => {
+    const btn = overlay.querySelector('#save-user');
+    btn.disabled = true; btn.textContent = 'Salvando...';
+    try {
+      const loginVal   = overlay.querySelector('#u-login').value.trim().toLowerCase();
+      const nome       = overlay.querySelector('#u-nome').value.trim();
+      const senha      = overlay.querySelector('#u-senha').value;
+      const sel        = overlay.querySelector('#u-perfil');
+      const perfilId   = sel.value;
+      const perfilNome = sel.options[sel.selectedIndex]?.dataset.nome || perfilId;
+      const isAdmin    = overlay.querySelector('#u-admin').checked;
+      const entityType = overlay.querySelector('#u-entity-type').value || null;
+      const entitySel  = overlay.querySelector('#u-entity-id');
+      const entityId   = entityType && entitySel.value ? Number(entitySel.value) : null;
+      const entityNome = entityType && entitySel.value ? (entitySel.options[entitySel.selectedIndex]?.dataset.nome || null) : null;
+
+      if (!loginVal || !nome) { toast('Login e nome são obrigatórios.', 'error'); btn.disabled=false; btn.textContent='Salvar'; return; }
+      if (isNew && !senha)    { toast('Senha obrigatória para novo usuário.', 'error'); btn.disabled=false; btn.textContent='Salvar'; return; }
+
+      await dbPut('usuarios', { login:loginVal, nome, perfilId, perfilNome, isAdmin, senha: senha||user.senha, entityType, entityId, entityNome });
+      try { await auditLog(`${isNew?'Criou':'Editou'} usuário ${loginVal}`, `perfil: ${perfilNome}${entityType?' · vínculo:'+entityType:''}`); } catch(_){}
+      toast(isNew?'Usuário criado.':'Usuário atualizado.', 'success');
+      closeModal();
+      if (refresh) refresh();
+    } catch(err) {
+      console.error('openUserModal save error:', err);
+      toast('Erro ao salvar: ' + (err.message||err), 'error');
+      btn.disabled=false; btn.textContent='Salvar';
+    }
+  });
+}
+
+// ── Exports globais ──────────────────────────────────────────────────────────
+global.openUserModal = openUserModal;
 
 })(window);

@@ -185,23 +185,11 @@
   };
 
   // ── Helpers de status ─────────────────────────────────────────────────────────
-  /**
-   * Resolve o status semântico de um chamado.
-   * | Valor               | Condição                                              |
-   * |---------------------|-------------------------------------------------------|
-   * | aberto              | dataFinalizacao ausente                               |
-   * | finalizado_ativo    | dataFinalizacao preenchida + integracaoAtiva = true   |
-   * | finalizado_inativo  | dataFinalizacao preenchida + integracaoAtiva = false  |
-   */
   function resolveStatusChamado(ch) {
     if (!ch.dataFinalizacao) return 'aberto';
     return ch.integracaoAtiva ? 'finalizado_ativo' : 'finalizado_inativo';
   }
 
-  /**
-   * Renderiza badge visual para o status de um chamado.
-   * Usa as mesmas cores e classes do renderIntStatusBadge de utils.js para consistência.
-   */
   function renderChamadoStatusBadge(status) {
     if (status === 'finalizado_ativo')   return `<span class="chamado-status-on"   style="font-size:11px">✓ Integração Ativa</span>`;
     if (status === 'finalizado_inativo') return `<span class="chamado-status-off"  style="font-size:11px">✗ Finalizado s/ Ativação</span>`;
@@ -209,14 +197,6 @@
   }
 
   // ── openChamadoModal ──────────────────────────────────────────────────────────
-  /**
-   * Modal único para criação e edição de chamados.
-   * @param {number|null} id              - null = novo chamado
-   * @param {Array}       clientesVisiveis - clientes já filtrados por RLS
-   * @param {Array}       sistemas
-   * @param {Array}       analistas
-   * @param {Function}    onSave          - callback de refresh
-   */
   async function openChamadoModal(id, clientesVisiveis, sistemas, analistas, onSave) {
     const ch     = id ? await dbGet('chamados', id) : null;
     const isNew  = !ch;
@@ -228,14 +208,14 @@
 
     const analistasAtivos = analistas.filter(a => a.ativo !== false);
 
-    const clientesOpts = `<option value="">— Selecione o laboratório —</option>` +
-      [...clientesVisiveis]
-        .sort((a, b) => (a.NomeFantasia || a.RazaoSocial || '').localeCompare(b.NomeFantasia || b.RazaoSocial || '', 'pt-BR'))
-        .map(c => {
-          const label = `${c.NomeFantasia || c.RazaoSocial || '#' + c.Codigo} · #${c.Codigo}`;
-          return `<option value="${c.Codigo}" ${c.Codigo === data.fk_cliente ? 'selected' : ''}>${label}</option>`;
-        })
-        .join('');
+    // [MODIFICADO] Lógica do Datalist - Removemos o <option selected> e o text extra para manter limpo
+    const clientesOpts = [...clientesVisiveis]
+      .sort((a, b) => (a.NomeFantasia || a.RazaoSocial || '').localeCompare(b.NomeFantasia || b.RazaoSocial || '', 'pt-BR'))
+      .map(c => {
+        const label = `${c.Codigo} - ${c.NomeFantasia || c.RazaoSocial || 'Sem nome'}`;
+        return `<option value="${c.Codigo}">${label}</option>`;
+      })
+      .join('');
 
     const sistemasOpts = `<option value="">— Nenhum —</option>` +
       sistemas.map(s =>
@@ -253,10 +233,21 @@
         <button class="modal-close" onclick="closeModal()">×</button>
       </div>
       <div class="modal-body">
+        
         <div class="field-group">
           <div class="field-label">Laboratório *</div>
-          <select id="ch-m-lab" ${!isNew ? 'disabled style="opacity:.6"' : ''}>${clientesOpts}</select>
+          <input type="text" id="ch-m-lab-input" list="clientes-list" 
+                 placeholder="Digite o código ou nome..." 
+                 value="${data.fk_cliente || ''}"
+                 ${!isNew ? 'disabled style="opacity:.6"' : ''}>
+          <datalist id="clientes-list">
+            ${clientesOpts}
+          </datalist>
+          <div id="lab-selected-name" style="font-size: 11px; color: var(--accent); margin-top: 4px; font-weight: 600;">
+            ${!isNew ? (clientesVisiveis.find(c => c.Codigo === data.fk_cliente)?.NomeFantasia || clientesVisiveis.find(c => c.Codigo === data.fk_cliente)?.RazaoSocial || '') : ''}
+          </div>
         </div>
+
         <div class="two-col">
           <div class="field-group">
             <div class="field-label">Nº do Chamado *</div>
@@ -303,11 +294,29 @@
       </div>
     `);
 
+    // [MODIFICADO] Feedback visual para Novos Registros
+    if (isNew) {
+      const labInput = overlay.querySelector('#ch-m-lab-input');
+      const labNameDisplay = overlay.querySelector('#lab-selected-name');
+      
+      labInput.addEventListener('input', () => {
+        const val = labInput.value.trim();
+        if (!val) {
+          labNameDisplay.textContent = '';
+          return;
+        }
+        const selected = clientesVisiveis.find(c => String(c.Codigo) === val);
+        labNameDisplay.textContent = selected ? (selected.NomeFantasia || selected.RazaoSocial || 'Laboratório encontrado') : "Código não encontrado";
+        labNameDisplay.style.color = selected ? 'var(--accent)' : 'var(--red)';
+      });
+    }
+
     overlay.querySelector('#save-ch-m').addEventListener('click', async () => {
       const btn = overlay.querySelector('#save-ch-m');
       btn.disabled = true; btn.textContent = 'Salvando...';
       try {
-        const fk_cliente    = isNew ? overlay.querySelector('#ch-m-lab').value : data.fk_cliente;
+        // [MODIFICADO] Captação do ID agora é feita do novo Input
+        const fk_cliente    = isNew ? overlay.querySelector('#ch-m-lab-input').value.trim() : data.fk_cliente;
         const numeroChamado = overlay.querySelector('#ch-m-num').value.trim();
         const analista      = overlay.querySelector('#ch-m-analista').value.trim();
         const dataSol       = overlay.querySelector('#ch-m-data-sol').value;

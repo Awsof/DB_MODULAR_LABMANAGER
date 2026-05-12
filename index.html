@@ -41,7 +41,12 @@
 <script src="./pages/grupos_matrizes.js" defer></script>
 <script src="./pages/dashboard_financeiro.js" defer></script>
 <script src="./pages/dashboard_comercial.js" defer></script>
-<style>
+<!-- 7C: CSS extraído para styles/ — theme → base → pages -->
+<link rel="stylesheet" href="./styles/theme.css">
+<link rel="stylesheet" href="./styles/base.css">
+<link rel="stylesheet" href="./styles/pages.css">
+<!-- REMOVIDO: bloco <style> inline migrado para styles/ acima -->
+<!--
   :root {
     /* 60% — Fundo claro: áreas de conteúdo e leitura */
     --bg:  #f4f6f8;
@@ -502,7 +507,7 @@
   .audit-action-badge.delete { background: rgba(214,48,49,.1); color: var(--red); }
   .audit-action-badge.import { background: rgba(0,55,97,.1); color: var(--navy3); }
   .audit-action-badge.login  { background: rgba(108,92,231,.1); color: #6c5ce7; }
-</style>
+-->
 </head>
 <body>
 

@@ -224,6 +224,19 @@
     }
   }
 
+  // ── escapeHtml ────────────────────────────────────────────────────────────
+  // Escapa campos de texto de negócio antes de interpolá-los em innerHTML.
+  // NÃO usar em HTML estrutural intencional (badges, chips).
+  function escapeHtml(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g,  '&amp;')
+      .replace(/</g,  '&lt;')
+      .replace(/>/g,  '&gt;')
+      .replace(/"/g,  '&quot;')
+      .replace(/'/g,  '&#39;');
+  }
+
   // ── getFeriadosNacionais ──────────────────────────────────────────────────
   // Retorna um Set de strings "YYYY-MM-DD" com feriados nacionais brasileiros.
   // Feriados móveis calculados via algoritmo de Meeus/Jones/Butcher.
@@ -282,5 +295,6 @@
   global.downloadModeloEnvioCSV = downloadModeloEnvioCSV;
   global.updateTopbar           = updateTopbar;
   global.getFeriadosNacionais   = getFeriadosNacionais;
+  global.escapeHtml             = escapeHtml;
 
 }(window));

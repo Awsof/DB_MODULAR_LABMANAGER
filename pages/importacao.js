@@ -216,6 +216,30 @@
         </div>
       </div>
 
+      <!-- BACKUP & RESTAURAÇÃO -->
+      <div class="chart-card" style="margin-bottom:20px">
+        <div class="chart-title">Backup e Restauração</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text);margin-bottom:6px">📤 Exportar Backup</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.7">
+              Gera um arquivo <strong>.json</strong> com todos os dados do sistema (clientes, representantes, chamados, envios, etc.).<br>
+              Salve o arquivo em local seguro para restauração futura.
+            </div>
+            <button class="btn secondary" id="btn-export-backup">⬇ Exportar Backup JSON</button>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--red);margin-bottom:6px">⚠ Restaurar Backup</div>
+            <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.7">
+              Apaga <strong>todos os dados atuais</strong> e restaura a partir de um arquivo de backup gerado por esta tela.<br>
+              <span style="color:var(--red)">Esta ação é irreversível.</span>
+            </div>
+            <button class="btn danger" id="btn-restore-backup">⬆ Restaurar Backup JSON</button>
+            <input type="file" id="restore-file-input" accept=".json" class="hidden">
+          </div>
+        </div>
+      </div>
+
       <div class="chart-title" style="margin-bottom:12px">Histórico de Importações (${logs.length})</div>
       ${logs.length === 0 ? `<div class="empty-state"><div class="empty-state-icon">📋</div><div class="empty-state-title">Nenhuma importação realizada</div></div>` : ''}
       <div id="logs-list">
@@ -261,6 +285,12 @@
     dropArea.addEventListener('dragleave', () => dropArea.classList.remove('drag-over'));
     dropArea.addEventListener('drop', e => { e.preventDefault(); dropArea.classList.remove('drag-over'); handleFile(e.dataTransfer.files[0]); });
     document.getElementById('file-input').addEventListener('change', e => handleFile(e.target.files[0]));
+
+    document.getElementById('btn-export-backup').addEventListener('click', exportBackup);
+    document.getElementById('btn-restore-backup').addEventListener('click', () => document.getElementById('restore-file-input').click());
+    document.getElementById('restore-file-input').addEventListener('change', e => {
+      const f = e.target.files[0]; if (f) restoreBackup(f);
+    });
 
     // currentImportTab e switchImportTab vivem no escopo do IIFE (acima).
     // Resetar estado ao (re)carregar a página para garantir consistência.
@@ -417,6 +447,58 @@
         toast('Erro ao processar o arquivo: ' + err.message, 'error');
         document.getElementById('import-status').textContent = 'Erro: ' + err.message;
       }
+    }
+
+    async function exportBackup() {
+      const STORES = ['gerentes','supervisores','representantes','assessores','analistas',
+        'sistemas','clientes','chamados','envios','propostas','pacotes','pacote_registros',
+        'budget','perfis_acesso','usuarios','logs','audit_log'];
+      const backup = { version: 10, exportedAt: new Date().toISOString(), stores: {} };
+      for (const store of STORES) {
+        try { backup.stores[store] = await dbAll(store); }
+        catch { backup.stores[store] = []; }
+      }
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href     = url;
+      a.download = `dblabmanager-backup-${new Date().toISOString().slice(0,10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast('Backup exportado com sucesso!', 'success', 4000);
+      await auditLog('backup', 'Backup JSON exportado');
+    }
+
+    async function restoreBackup(file) {
+      let data;
+      try { data = JSON.parse(await file.text()); }
+      catch { toast('Arquivo inválido: não é um JSON válido.', 'error'); return; }
+      if (!data.version || !data.stores) {
+        toast('Arquivo inválido: faltam campos obrigatórios (version, stores).', 'error'); return;
+      }
+      if (data.version !== 10) {
+        toast(`Versão incompatível: esperado v10, encontrado v${data.version}.`, 'error'); return;
+      }
+      const exportedDate = data.exportedAt
+        ? new Date(data.exportedAt).toLocaleString('pt-BR') : 'data desconhecida';
+      if (!confirm(`⚠️ ATENÇÃO: Esta ação apagará TODOS os dados atuais e não pode ser desfeita.\n\nRestaurar backup de ${exportedDate}?`)) return;
+      if (!confirm('Confirme novamente: todos os dados serão substituídos pelo backup selecionado.')) return;
+      const ORDER = ['gerentes','supervisores','representantes','assessores','analistas',
+        'sistemas','clientes','chamados','envios','propostas','pacotes','pacote_registros',
+        'budget','perfis_acesso','usuarios','logs','audit_log'];
+      toast('Restaurando backup...', 'info', 8000);
+      for (const store of ORDER) {
+        try { await dbClear(store); } catch {}
+      }
+      for (const store of ORDER) {
+        const records = data.stores[store] || [];
+        for (let i = 0; i < records.length; i += 200) {
+          await Promise.all(records.slice(i, i + 200).map(r => dbAdd(store, r).catch(() => {})));
+        }
+      }
+      await auditLog('restore', `Backup restaurado (exportado em ${data.exportedAt})`);
+      toast('Backup restaurado com sucesso! Recarregando...', 'success', 4000);
+      setTimeout(() => pages.importacao(), 2000);
     }
   };
 

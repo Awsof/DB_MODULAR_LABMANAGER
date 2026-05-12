@@ -277,7 +277,11 @@
       auditLog('login', 'Acesso realizado pelo perfil ' + currentUser.perfilNome);
 
       if (typeof global.navigate === 'function') {
-        global.navigate('dashboard');
+        // 7A: navigate to hash page on reload, fallback to dashboard
+        var _hash = global.location && global.location.hash.slice(1);
+        var _start = (_hash && typeof global.canAccess === 'function' && global.canAccess(_hash))
+          ? _hash : 'dashboard';
+        global.navigate(_start);
       }
 
       return true;

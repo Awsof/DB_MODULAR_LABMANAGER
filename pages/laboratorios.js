@@ -92,33 +92,43 @@
         const envE   = Object.entries(envMap).sort((a, b) => b[1] - a[1]);
         const cts    = Array.isArray(c.contatos) && c.contatos.length ? c.contatos : (c.NomeContato ? [{ nome: c.NomeContato }] : []);
         return `<tr>
-          <td style="font-family:var(--mono);font-size:11px;color:var(--text3);white-space:nowrap">${c.Codigo}</td>
+          <td style="font-family:var(--mono);font-size:11px;color:var(--text3);white-space:nowrap">${escapeHtml(c.Codigo)}</td>
           <td>
-            <div style="font-weight:600;color:var(--navy);font-size:13px">${c.NomeFantasia || c.RazaoSocial || '(sem nome)'}</div>
-            ${c.CNPJ ? `<div style="font-size:10px;color:var(--text3)">${c.CNPJ}</div>` : ''}
+            <div style="font-weight:600;color:var(--navy);font-size:13px">${escapeHtml(c.NomeFantasia || c.RazaoSocial || '(sem nome)')}</div>
+            ${c.CNPJ ? `<div style="font-size:10px;color:var(--text3)">${escapeHtml(c.CNPJ)}</div>` : ''}
           </td>
-          <td><span class="badge uf">${c.UF || '?'}</span></td>
-          <td style="font-size:12px;color:var(--text2)">${rep ? rep.nome.split(' ').slice(0, 2).join(' ') : '—'}</td>
-          <td style="font-size:12px">${sys ? `<span class="badge sys">${sys.nome}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
+          <td><span class="badge uf">${escapeHtml(c.UF || '?')}</span></td>
+          <td style="font-size:12px;color:var(--text2)">${rep ? escapeHtml(rep.nome.split(' ').slice(0, 2).join(' ')) : '—'}</td>
+          <td style="font-size:12px">${sys ? `<span class="badge sys">${escapeHtml(sys.nome)}</span>` : '<span style="color:var(--text3)">—</span>'}</td>
           <td>${renderIntStatusBadge(intSt)}</td>
           <td style="font-size:11px">
             ${envE.length
-              ? envE.map(([t, q]) => `<span class="lab-envio-chip" style="${envChipColor(t)}">${t}<span class="chip-qty">${q.toLocaleString('pt-BR')}</span></span>`).join(' ')
+              ? envE.map(([t, q]) => `<span class="lab-envio-chip" style="${envChipColor(t)}">${escapeHtml(t)}<span class="chip-qty">${q.toLocaleString('pt-BR')}</span></span>`).join(' ')
               : '<span style="color:var(--text3);font-size:11px">—</span>'}
           </td>
-          <td style="font-size:12px;color:var(--text2)">${cts[0]?.nome || '—'}</td>
+          <td style="font-size:12px;color:var(--text2)">${escapeHtml(cts[0]?.nome || '—')}</td>
           <td style="white-space:nowrap">
             <div style="display:flex;gap:5px">
-              <button class="btn sm secondary" data-view="${c.Codigo}" style="font-size:11px;padding:4px 8px">Ver</button>
-              ${canBtn('laboratorios', 'edit-btn') ? `<button class="btn sm" data-edit="${c.Codigo}" style="font-size:11px;padding:4px 8px">Editar</button>` : ''}
+              <button class="btn sm secondary" data-view="${escapeHtml(String(c.Codigo))}" style="font-size:11px;padding:4px 8px">Ver</button>
+              ${canBtn('laboratorios', 'edit-btn') ? `<button class="btn sm" data-edit="${escapeHtml(String(c.Codigo))}" style="font-size:11px;padding:4px 8px">Editar</button>` : ''}
             </div>
           </td>
         </tr>`;
       };
 
-      document.getElementById('lab-table-body').innerHTML = slice.length === 0
-        ? `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text3)">Nenhum resultado encontrado.</td></tr>`
-        : slice.map(renderRow).join('');
+      // 7F: DocumentFragment — evita reflow completo em listas grandes
+      const labTbody = document.getElementById('lab-table-body');
+      if (slice.length === 0) {
+        labTbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--text3)">Nenhum resultado encontrado.</td></tr>`;
+      } else {
+        const _frag = document.createDocumentFragment();
+        slice.forEach(c => {
+          const _tmp = document.createElement('tbody');
+          _tmp.innerHTML = renderRow(c);
+          _frag.appendChild(_tmp.firstElementChild);
+        });
+        labTbody.replaceChildren(_frag);
+      }
 
       // Sortable
       const labThead = document.querySelector('#lab-table-body')?.closest('table')?.querySelector('thead');

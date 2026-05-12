@@ -8,12 +8,23 @@
   pages.divergencias = async function() {
     updateTopbar('Divergências', 'Cruzamento entre integração e base de envio', '');
 
-    const [_clientesDiv, reps, sistemas, chamados, envios] = await Promise.all([
+    let [_clientesDiv, reps, sistemas, chamados, envios] = await Promise.all([
       dbAll('clientes'), dbAll('representantes'), dbAll('sistemas'),
       dbAll('chamados'), dbAll('envios')
     ]);
     // ── RLS: filtrar clientes pelo vínculo do usuário ──
     const clientes = applyDataFilter(_clientesDiv, reps);
+
+    // Quando existem múltiplos períodos no banco (ex: março + abril), usa apenas o mais recente.
+    // O import só apaga registros do mesmo período, então períodos anteriores permanecem.
+    (function () {
+      const periodos = [...new Set(envios.map(e => e.periodo).filter(Boolean))];
+      if (periodos.length > 1) {
+        const pd = p => { const [d,m,y] = p.split('~')[0].split('/'); return new Date(+y, +m-1, +d); };
+        const latest = periodos.sort((a, b) => pd(b) - pd(a))[0];
+        envios = envios.filter(e => e.periodo === latest);
+      }
+    })();
 
     if (envios.length === 0) {
       document.getElementById('content').innerHTML = `
@@ -138,33 +149,44 @@
     // All unique envio types across current dataset
     const ALL_ENVIO_TYPES = [...new Set(envios.map(e=>e.tipoEnvio))].sort();
 
-    function renderRows(list) {
+    // 7F: DocumentFragment — substitui innerHTML para listas de divergência
+    function fillTbody(tbody, list) {
       const filtered = list.filter(matchRow);
-      if (!filtered.length) return `<tr><td colspan="100" style="text-align:center;padding:20px;color:var(--text3)">Nenhuma divergência nesta categoria com os filtros aplicados.</td></tr>`;
-      return filtered.map(({ c, chs, tiposEnvio, rep, sys, tipoIntExpected, envInfo }) => {
-        // per-tipo qty map
-        const qtyByTipo = {};
-        if (envInfo) {
-          const evs = envios.filter(ev => ev.fk_cliente === String(c.Codigo));
-          for (const ev of evs) qtyByTipo[ev.tipoEnvio] = (qtyByTipo[ev.tipoEnvio]||0) + ev.qntEnvio;
-        }
-        const tipoCols = ALL_ENVIO_TYPES.map(t => {
-          const q = qtyByTipo[t];
-          return `<td style="font-size:11px;text-align:right;color:${q?'var(--navy)':'var(--border2)'};">${q?q.toLocaleString('pt-BR'):'—'}</td>`;
-        }).join('');
-        return `<tr>
-          <td><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${c.Codigo}</span></td>
-          <td style="min-width:180px"><strong style="color:var(--text)">${c.NomeFantasia||c.RazaoSocial||'—'}</strong></td>
-          <td><span class="badge uf">${c.UF||'?'}</span></td>
-          <td style="font-size:12px">${rep?.nome||'—'}</td>
-          <td style="font-size:12px">${sys?.nome||'—'}</td>
-          <td>${renderIntBadge(tipoIntExpected)}</td>
-          ${tipoCols}
-        </tr>`;
-      }).join('');
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="100" style="text-align:center;padding:20px;color:var(--text3)">Nenhuma divergência nesta categoria com os filtros aplicados.</td></tr>`;
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      filtered.forEach(row => {
+        const tmp = document.createElement('tbody');
+        tmp.innerHTML = renderDivRow(row);
+        frag.appendChild(tmp.firstElementChild);
+      });
+      tbody.replaceChildren(frag);
     }
 
-    const TYPE_HEADERS = ALL_ENVIO_TYPES.map(t=>`<th style="text-align:right;white-space:nowrap;min-width:90px">${t}</th>`).join('');
+    function renderDivRow({ c, chs, tiposEnvio, rep, sys, tipoIntExpected, envInfo }) {
+      const qtyByTipo = {};
+      if (envInfo) {
+        const evs = envios.filter(ev => ev.fk_cliente === String(c.Codigo));
+        for (const ev of evs) qtyByTipo[ev.tipoEnvio] = (qtyByTipo[ev.tipoEnvio]||0) + ev.qntEnvio;
+      }
+      const tipoCols = ALL_ENVIO_TYPES.map(t => {
+        const q = qtyByTipo[t];
+        return `<td style="font-size:11px;text-align:right;color:${q?'var(--navy)':'var(--border2)'};">${q?q.toLocaleString('pt-BR'):'—'}</td>`;
+      }).join('');
+      return `<tr>
+        <td><span style="font-family:var(--mono);font-size:11px;color:var(--text3)">${escapeHtml(c.Codigo)}</span></td>
+        <td style="min-width:180px"><strong style="color:var(--text)">${escapeHtml(c.NomeFantasia||c.RazaoSocial||'—')}</strong></td>
+        <td><span class="badge uf">${escapeHtml(c.UF||'?')}</span></td>
+        <td style="font-size:12px">${escapeHtml(rep?.nome||'—')}</td>
+        <td style="font-size:12px">${escapeHtml(sys?.nome||'—')}</td>
+        <td>${renderIntBadge(tipoIntExpected)}</td>
+        ${tipoCols}
+      </tr>`;
+    }
+
+    const TYPE_HEADERS = ALL_ENVIO_TYPES.map(t=>`<th style="text-align:right;white-space:nowrap;min-width:90px">${escapeHtml(t)}</th>`).join('');
     const COL_HEADERS = `
       <th>Código</th><th>Nome</th><th>UF</th><th>Representante</th>
       <th>Sistema</th><th>Int. Chamado</th>${TYPE_HEADERS}`;
@@ -177,6 +199,7 @@
     }
     window._divToggleAcc = toggleAcc;
 
+    // accSection builds container HTML; fillTbody is called after to populate rows (7F)
     function accSection(key, colorClass, icon, label, list) {
       const count = list.filter(matchRow).length;
       const isOpen = accState[key];
@@ -190,7 +213,7 @@
             <div class="div-table-wrap">
               <table style="width:100%;min-width:900px;table-layout:auto">
                 <thead><tr>${COL_HEADERS}</tr></thead>
-                <tbody>${renderRows(list)}</tbody>
+                <tbody id="tb-${key}"></tbody>
               </table>
             </div>
           </div>
@@ -203,6 +226,11 @@
         accSection('d2','amber', '⚠', 'Sem Integração Ativa enviando por Integração', div2) +
         accSection('d3','purple','⚠', 'Divergência entre Tipo de Chamado e Tipo de Envio', div3) +
         accSection('d4','teal',  '⚠', 'Mensalidade Ativa sem Envio no Período', div4);
+      // 7F: fill each tbody via DocumentFragment after container HTML is set
+      fillTbody(document.getElementById('tb-d1'), div1);
+      fillTbody(document.getElementById('tb-d2'), div2);
+      fillTbody(document.getElementById('tb-d3'), div3);
+      fillTbody(document.getElementById('tb-d4'), div4);
     }
 
     document.getElementById('content').innerHTML = `

@@ -1,0 +1,43 @@
+/* styles/theme.css — Design tokens e variáveis CSS globais (Etapa 7C) */
+:root {
+  /* 60% — Fundo claro: áreas de conteúdo e leitura */
+  --bg:  #f4f6f8;
+  --bg2: #ffffff;
+  --bg3: #eef1f5;
+  --bg4: #e4e8ef;
+
+  /* Bordas e separadores */
+  --border:  #d4dbe6;
+  --border2: #b8c4d4;
+
+  /* Textos */
+  --text:  #1a2433;
+  --text2: #4a5568;
+  --text3: #8a96a8;
+
+  /* 30% — Azul Marinho Grupo DB: estrutura / sidebar */
+  --navy:    #003761;
+  --navy2:   #002a4d;
+  --navy3:   #004a80;
+
+  /* 8% — Verde-Água: ação / botões / destaques */
+  --accent:  #0F9B94;
+  --accent2: #0a7a74;
+
+  /* 2% — Dourado: refinamento */
+  --gold:    #C49B3C;
+  --gold2:   #a8822e;
+
+  /* Semânticas (alerts, status) */
+  --green:   #0F9B94;
+  --green2:  #0a7a74;
+  --amber:   #C49B3C;
+  --red:     #d63031;
+  --purple:  #6c5ce7;
+  --teal:    #00b894;
+
+  --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'Cascadia Code', 'Fira Code', monospace;
+  --r: 6px;
+  --r2: 10px;
+}

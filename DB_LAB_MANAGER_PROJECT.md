@@ -1,6 +1,6 @@
 # DB Lab Manager — Documentação do Projeto
 
-> **Versão atual:** index.html (shell mínimo sem código de aplicação inline) + core/ (5 módulos IIFE clássicos) + components/ (5 Web Components) + pages/ (17 módulos de páginas) + import/ (3 engines de importação) — **FASE 1 ✅ · FASE 2 ✅ · FASE 3 ✅ · FASE 4 ✅ · FASE 5 ✅ · FASE 6 ⚠️ (parcial — Etapas 6A e 6B pendentes) · FASE 7 🔲 pendente (subdividida em Etapas 7A → 7G)**
+> **Versão atual:** index.html (shell mínimo sem código de aplicação inline) + core/ (5 módulos IIFE clássicos) + components/ (5 Web Components) + pages/ (17 módulos de páginas) + import/ (3 engines de importação) — **FASE 1 ✅ · FASE 2 ✅ · FASE 3 ✅ · FASE 4 ✅ · FASE 5 ✅ · FASE 6 ✅ · FASE 7 ✅ (7A · 7B · 7C · 7D · 7F concluídas; 7E e 7G adiadas)**
 
 ---
 
@@ -691,7 +691,7 @@ db-lab-manager/
 
 ---
 
-### FASE 6 — Hierarquia Comercial e Melhorias ⚠️ PARCIALMENTE CONCLUÍDO
+### FASE 6 — Hierarquia Comercial e Melhorias ✅ CONCLUÍDO
 
 - [x] `DB_VERSION` 9 → 10: store `gerentes`, campo `fk_supervisor`, campo `gerente`
 - [x] RLS hierárquico: gerente → supervisor → representante
@@ -702,28 +702,26 @@ db-lab-manager/
 - [x] `pages/laboratorios.js` — criação de chamado desacoplada
 - [x] `core/acl.js` — novos perfis e páginas na ACL_STRUCTURE
 - [x] `db-sidebar.js` — itens `chamados` e `gerentes`
-- [ ] **ETAPA 6A** — Corrigir duplicação de seções no sidebar (`db-sidebar.js`) 🔴
-- [ ] **ETAPA 6B** — Feriados nacionais no cálculo de dias úteis (`core/utils.js` + `pages/analistas.js`) 🟢
+- [x] **ETAPA 6A** — Corrigir duplicação de seções no sidebar (`db-sidebar.js`)
+- [x] **ETAPA 6B** — Feriados nacionais no cálculo de dias úteis (`core/utils.js` + `pages/analistas.js`)
 
 ---
 
-### FASE 7 — Melhorias Técnicas Pós-Modularização 🔲 PENDENTE
+### FASE 7 — Melhorias Técnicas Pós-Modularização ✅ CONCLUÍDO (parcial)
 
-| Etapa | Descrição | Prioridade | Arquivos Principais |
-|---|---|---|---|
-| **7A** | Hash routing | 🟡 Média | `core/router.js`, `index.html` |
-| **7B** | Sanitização XSS (`escapeHtml`) | 🟡 Média | `core/utils.js`, todos os `pages/*.js` |
-| **7C** | Separação do CSS | 🟢 Baixa | `styles/*.css`, `index.html` |
-| **7D** | Export/Import de dados (backup JSON) | 🟡 Média | `pages/importacao.js`, `core/db.js` |
-| **7E** | Migração IIFE → ES Modules | 🟢 Baixa | todos os `core/`, `import/`, `pages/`, novo `app.js` |
-| **7F** | DocumentFragment nas listagens pesadas | 🟡 Média | `pages/laboratorios.js`, `pages/divergencias.js` |
-| **7G** | Paginação cursor-based IndexedDB | 🟢 Baixa | `core/db.js`, `pages/laboratorios.js` |
+| Etapa | Descrição | Status |
+|---|---|---|
+| **7A** | Hash routing (`router.js` + `auth.js`) | ✅ Concluído |
+| **7B** | Sanitização XSS (`escapeHtml`) em `utils.js` + páginas principais | ✅ Concluído |
+| **7C** | Separação do CSS em `styles/theme.css`, `base.css`, `pages.css` | ✅ Concluído |
+| **7D** | Export/Import de dados (backup JSON) em `pages/importacao.js` | ✅ Concluído |
+| **7E** | Migração IIFE → ES Modules | ⏭ Adiado (risco/complexidade) |
+| **7F** | DocumentFragment nas listagens (`laboratorios.js`, `divergencias.js`) | ✅ Concluído |
+| **7G** | Paginação cursor-based IndexedDB | ⏭ Adiado (depende de 7E) |
 
-**Dependências entre etapas:**
-- **7F deve vir após 7B** (escapeHtml já aplicado nos `renderRow` antes de usar DocumentFragment)
-- **7G é mais simples após 7E** (dbPage exportável como ESM sem `window.*`)
-- **7B, 7C, 7D e 7A são independentes entre si** — podem ser executadas em paralelo ou qualquer ordem
-- A avaliação de **Shadow DOM `mode: 'closed'`** nos Web Components fica para depois de 7E estar estável
+**Notas:**
+- 7E (ES Modules) adiada por risco de regressão em toda a base de código sem build step
+- 7G (cursor-based pagination) adiada por dependência de 7E para exportação limpa de `dbPage`
 
 ---
 
@@ -752,11 +750,11 @@ db-lab-manager/
 
 | Arquivo | Tipo | Descrição | Prioridade | Etapa |
 |---|---|---|---|---|
-| `components/db-sidebar.js` | **Bug ativo** | Seção "Financeiro" duplicada: `propostas` e `pacotes` aparecem duas vezes. | 🔴 Alta | **6A** |
-| Todos os `pages/*.js` | Segurança / Performance | `innerHTML` extensivo sem `escapeHtml` — risco de XSS em dados do IDB. | 🟡 Média | **7B** |
+| `components/db-sidebar.js` | ~~Bug ativo~~ **Resolvido** | Seção "Financeiro" duplicada — corrigida na Etapa 6A. | — | **6A ✅** |
+| Todos os `pages/*.js` | ~~Segurança~~ **Resolvido** | `escapeHtml` implementado e aplicado nas páginas principais (7B). | — | **7B ✅** |
 | Geral | Qualidade | Ausência de testes automatizados. Toda regressão é detectada manualmente. | 🟡 Média | pós-7E |
-| `core/*.js` e `pages/*.js` | Arquitetura | IIFEs a migrar para ES Modules nativos. Pré-requisito satisfeito. | 🟢 Baixa | **7E** |
-| `pages/analistas.js` | Cálculo | Dias úteis não consideram feriados nacionais brasileiros. | 🟢 Baixa | **6B** |
+| `core/*.js` e `pages/*.js` | Arquitetura | IIFEs a migrar para ES Modules nativos. Pré-requisito satisfeito. | 🟢 Baixa | **7E** ⏭ |
+| `pages/analistas.js` | ~~Cálculo~~ **Resolvido** | Dias úteis agora incluem feriados nacionais brasileiros (6B). | — | **6B ✅** |
 | `core/utils.js` | Código morto residual | `openModal()` / `closeModal()` como proxies — removíveis após 7E. | 🟢 Baixa | pós-7E |
 
 ---
@@ -764,24 +762,20 @@ db-lab-manager/
 ## 10. Ordem de Execução Recomendada
 
 ```
-AGORA (bugs ativos)
-  └─► ETAPA 6A — Corrigir sidebar duplicado          [1 arquivo: db-sidebar.js]
+CONCLUÍDO ✅
+  ├─► ETAPA 6A — Corrigir sidebar duplicado
+  ├─► ETAPA 6B — Feriados nacionais
+  ├─► ETAPA 7A — Hash routing
+  ├─► ETAPA 7B — escapeHtml
+  ├─► ETAPA 7C — Separação CSS
+  ├─► ETAPA 7D — Backup/Restore JSON
+  └─► ETAPA 7F — DocumentFragment
 
-CURTO PRAZO (melhorias de produto e segurança)
-  ├─► ETAPA 7A — Hash routing                        [2 arquivos: router.js, index.html]
-  ├─► ETAPA 7B — escapeHtml (sub-lote B1 primeiro)   [3→4→N arquivos por sub-lote]
-  └─► ETAPA 7D — Backup/Restore JSON                 [2 arquivos: importacao.js, db.js]
+ADIADO ⏭
+  ├─► ETAPA 7E — ES Modules (risco alto, zero build step)
+  └─► ETAPA 7G — Paginação cursor-based (depende de 7E)
 
-MÉDIO PRAZO (arquitetura e performance)
-  ├─► ETAPA 6B — Feriados nacionais                  [2 arquivos: utils.js, analistas.js]
-  ├─► ETAPA 7F — DocumentFragment (após 7B)          [2 arquivos prioritários]
-  └─► ETAPA 7C — Separação CSS                       [4 arquivos: 3 CSS + index.html]
-
-LONGO PRAZO (refatoração profunda)
-  ├─► ETAPA 7E — ES Modules (4 sub-etapas)           [todos os core/ + import/ + pages/]
-  └─► ETAPA 7G — Paginação cursor-based (após 7E)    [2 arquivos: db.js, laboratorios.js]
-
-PÓS-7E
+FUTURO
   └─► Testes de regressão automatizados (Playwright/Cypress)
       Avaliação de Shadow DOM mode: 'closed'
       Remoção de openModal/closeModal proxies de utils.js
@@ -789,4 +783,4 @@ PÓS-7E
 
 ---
 
-*Documento atualizado em: maio de 2026 — Fases 1–5 concluídas · Fase 6 parcialmente concluída · Fase 7 subdividida em etapas 7A–7G com dependências e arquivos mapeados · DB Lab Manager — Diagnósticos do Brasil*
+*Documento atualizado em: maio de 2026 — Fases 1–7 concluídas (7E e 7G adiadas por complexidade) · DB Lab Manager — Diagnósticos do Brasil*

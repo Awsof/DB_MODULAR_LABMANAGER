@@ -36,7 +36,13 @@
     var sidebarEl = document.getElementById('sidebar');
     if (sidebarEl) sidebarEl.activePage = page;
 
+    // Set currentPage BEFORE updating hash to prevent hashchange loop
     global.currentPage = page;
+
+    // 7A: persist navigation in URL hash
+    if (global.location && global.location.hash.slice(1) !== page) {
+      global.location.hash = page;
+    }
 
     var bannerEl = document.getElementById('rls-global-banner');
     if (bannerEl) {
@@ -49,6 +55,15 @@
       pages[page]();
     }
   }
+
+  // 7A: restore navigation on browser back/forward
+  global.addEventListener('hashchange', function () {
+    var page = global.location.hash.slice(1);
+    if (!page || page === global.currentPage) return;
+    if (typeof global.canAccess === 'function' && !global.canAccess(page)) return;
+    if (typeof pages[page] !== 'function') return;
+    navigate(page);
+  });
 
   // ── Registro em window ──────────────────────────────────────────────────────
   global.navigate    = navigate;

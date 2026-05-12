@@ -224,6 +224,49 @@
     }
   }
 
+  // ── getFeriadosNacionais ──────────────────────────────────────────────────
+  // Retorna um Set de strings "YYYY-MM-DD" com feriados nacionais brasileiros.
+  // Feriados móveis calculados via algoritmo de Meeus/Jones/Butcher.
+  function getFeriadosNacionais(ano) {
+    function _pascoa(y) {
+      var a=y%19, b=Math.floor(y/100), c=y%100;
+      var d=Math.floor(b/4), e=b%4;
+      var f=Math.floor((b+8)/25);
+      var g=Math.floor((b-f+1)/3);
+      var h=(19*a+b-d-g+15)%30;
+      var i=Math.floor(c/4), k=c%4;
+      var l=(32+2*e+2*i-h-k)%7;
+      var m=Math.floor((a+11*h+22*l)/451);
+      var mes=Math.floor((h+l-7*m+114)/31);
+      var dia=((h+l-7*m+114)%31)+1;
+      return new Date(y, mes-1, dia);
+    }
+    function _fmt(dt) {
+      return dt.getFullYear() + '-' +
+        String(dt.getMonth()+1).padStart(2,'0') + '-' +
+        String(dt.getDate()).padStart(2,'0');
+    }
+    function _add(dt, n) { var r=new Date(dt); r.setDate(r.getDate()+n); return r; }
+
+    var set = new Set([
+      ano+'-01-01', // Confraternização Universal
+      ano+'-04-21', // Tiradentes
+      ano+'-05-01', // Dia do Trabalho
+      ano+'-09-07', // Independência do Brasil
+      ano+'-10-12', // N. Sra. Aparecida
+      ano+'-11-02', // Finados
+      ano+'-11-15', // Proclamação da República
+      ano+'-12-25', // Natal
+    ]);
+    var p = _pascoa(ano);
+    set.add(_fmt(_add(p, -48))); // Carnaval — Segunda-feira
+    set.add(_fmt(_add(p, -47))); // Carnaval — Terça-feira
+    set.add(_fmt(_add(p,  -2))); // Sexta-feira Santa
+    set.add(_fmt(p));             // Páscoa
+    set.add(_fmt(_add(p,  60))); // Corpus Christi
+    return set;
+  }
+
   // ── Registro em window.* ──────────────────────────────────────────────────
   global.toast                  = toast;
   global.openModal              = openModal;
@@ -238,5 +281,6 @@
   global.downloadModeloCSV      = downloadModeloCSV;
   global.downloadModeloEnvioCSV = downloadModeloEnvioCSV;
   global.updateTopbar           = updateTopbar;
+  global.getFeriadosNacionais   = getFeriadosNacionais;
 
 }(window));

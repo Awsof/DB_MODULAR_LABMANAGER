@@ -27,7 +27,6 @@
       { key: 'dashboard',            label: 'Dashboard Integração',  btns: [{ key: 'dash-int-report',  label: 'Gerar Relatório' }] },
       { key: 'dashboard_comercial',  label: 'Dashboard Comercial',   btns: [{ key: 'dash-com-report',  label: 'Gerar Relatório' }] },
       { key: 'dashboard_financeiro', label: 'Dashboard Financeiro',  btns: [{ key: 'dash-fin-report',  label: 'Gerar Relatório' }, { key: 'budget-save', label: 'Salvar Budget' }] },
-      { key: 'divergencias', label: 'Divergências', btns: [] },
     ]},
     { cat: 'Cadastros', pages: [
       { key: 'laboratorios',    label: 'Laboratórios',      btns: [{ key: 'edit-btn',     label: 'Botão Editar' }] },
@@ -45,6 +44,9 @@
         { key: 'edit-btn',       label: 'Botão Editar' },
         { key: 'close-cha-btn',  label: 'Finalizar Chamado' },
       ]},
+    ]},
+    { cat: 'Análise', pages: [
+      { key: 'divergencias', label: 'Divergências', btns: [] },
     ]},
     { cat: 'Financeiro', pages: [
       { key: 'propostas', label: 'Propostas', btns: [{ key: 'new-prop-btn', label: 'Nova Proposta' }, { key: 'edit-btn', label: 'Botão Editar' }] },

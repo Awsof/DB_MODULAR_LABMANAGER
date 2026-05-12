@@ -248,6 +248,30 @@
       else                          implantacao.push(item);
     }
 
+    /* Prazo médio em dias úteis (exclui fins de semana e feriados nacionais) */
+    const _fCache = {};
+    const calcDiasUteis = (inicio, fim) => {
+      const d = new Date(inicio); d.setHours(0,0,0,0);
+      const f = new Date(fim);    f.setHours(0,0,0,0);
+      let n = 0;
+      while (d < f) {
+        const dow = d.getDay();
+        if (dow !== 0 && dow !== 6) {
+          const y = d.getFullYear();
+          if (!_fCache[y]) _fCache[y] = getFeriadosNacionais(y);
+          if (!_fCache[y].has(d.toISOString().slice(0,10))) n++;
+        }
+        d.setDate(d.getDate() + 1);
+      }
+      return n;
+    };
+    const concluidos = meusChamados.filter(ch => ch.dataSolicitacao && ch.dataFinalizacao);
+    let prazoMedio = '—';
+    if (concluidos.length > 0) {
+      const total = concluidos.reduce((s, ch) => s + calcDiasUteis(ch.dataSolicitacao, ch.dataFinalizacao), 0);
+      prazoMedio = (total / concluidos.length).toFixed(1);
+    }
+
     /* Tabela por seção */
     const secao = (titulo, cor, lista) => {
       if (!lista.length) return '';
@@ -315,7 +339,7 @@
         </div>
 
         <!-- Cards de resumo -->
-        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px">
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:4px">
           <div style="padding:10px;background:rgba(15,155,148,.07);border-radius:var(--r);
                       text-align:center;border:1px solid rgba(15,155,148,.2)">
             <div style="font-size:22px;font-weight:700;color:var(--accent2)">${integrados.length}</div>
@@ -330,6 +354,11 @@
                       text-align:center;border:1px solid rgba(232,88,88,.2)">
             <div style="font-size:22px;font-weight:700;color:var(--red)">${inativados.length}</div>
             <div style="font-size:11px;color:var(--text3)">Inativados</div>
+          </div>
+          <div style="padding:10px;background:rgba(0,55,97,.06);border-radius:var(--r);
+                      text-align:center;border:1px solid rgba(0,55,97,.15)">
+            <div style="font-size:22px;font-weight:700;color:var(--navy)">${prazoMedio}</div>
+            <div style="font-size:11px;color:var(--text3)">Prazo Médio (dias úteis)</div>
           </div>
         </div>
 
